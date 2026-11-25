@@ -1,0 +1,1725 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VOX-ONE | 올인원 무료 스마트 무전기</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        navy: {
+                            950: '#060A14',
+                            900: '#0B1120',
+                            850: '#10182C',
+                            800: '#162038',
+                            700: '#223052',
+                        },
+                        tactical: {
+                            amber: '#F59E0B',
+                            emerald: '#10B981',
+                            crimson: '#EF4444',
+                            cyan: '#06B6D4',
+                        }
+                    },
+                    animation: {
+                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'radar-spin': 'spin 4s linear infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 모바일 앱 감성 스크롤바 숨김 및 터치 최적화 */
+        * {
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        input, textarea {
+            user-select: text;
+        }
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 9999px;
+        }
+        /* PTT 버튼 입체 택티컬 효과 */
+        .ptt-btn-shadow {
+            box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.35), inset 0 2px 4px rgba(255, 255, 255, 0.3);
+        }
+        .ptt-btn-active {
+            transform: scale(0.95);
+            box-shadow: 0 0 35px 5px rgba(239, 68, 68, 0.6), inset 0 4px 10px rgba(0, 0, 0, 0.4);
+        }
+        .ptt-btn-busy {
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+        }
+        /* 레이더 그리드 배경 */
+        .radar-bg {
+            background-image: 
+                radial-gradient(circle, rgba(6, 182, 212, 0.15) 1px, transparent 1px),
+                radial-gradient(circle, rgba(6, 182, 212, 0.08) 2px, transparent 2px);
+            background-size: 24px 24px;
+        }
+    </style>
+</head>
+<body class="bg-navy-950 text-slate-100 font-sans antialiased overflow-x-hidden min-h-screen flex justify-center">
+
+    <!-- 모바일 프레임 컨테이너 (데스크톱에서는 앱 프레임, 모바일에서는 100% 꽉 차게 표시) -->
+    <div id="app-shell" class="w-full max-w-md bg-navy-900 min-h-screen sm:min-h-[840px] sm:my-4 sm:rounded-3xl sm:border sm:border-slate-800 sm:shadow-2xl flex flex-col relative overflow-hidden">
+
+        <!-- 상단 글로벌 헤더 -->
+        <header class="bg-navy-950/90 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 flex items-center justify-between z-30 sticky top-0">
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                    <i class="fa-solid fa-walkie-talkie text-navy-950 text-lg"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-extrabold tracking-tight text-base text-white">VOX-ONE</span>
+                        <span id="sync-badge" class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">LIVE</span>
+                    </div>
+                    <!-- 내 온라인 상태 드롭다운 -->
+                    <div class="relative inline-block">
+                        <select id="user-status-select" onchange="updateUserStatus(this.value)" class="bg-transparent text-xs text-slate-300 font-medium focus:outline-none cursor-pointer pr-1">
+                            <option value="online" class="bg-navy-900">🟢 온라인 (수신대기)</option>
+                            <option value="driving" class="bg-navy-900">🚗 운전중 (자동덕킹)</option>
+                            <option value="working" class="bg-navy-900">🏢 근무중 (다중청취)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+                <button onclick="openModal('channel-modal')" class="px-2.5 py-1.5 rounded-xl bg-navy-800 hover:bg-navy-700 border border-slate-700 text-xs font-semibold text-amber-400 flex items-center gap-1 transition active:scale-95">
+                    <i class="fa-solid fa-hashtag"></i>
+                    <span>채널 입장</span>
+                </button>
+                <button onclick="openModal('guide-modal')" class="w-8 h-8 rounded-xl bg-navy-800 hover:bg-navy-700 border border-slate-700 text-cyan-400 flex items-center justify-center transition active:scale-95" title="무료 배포·운영 가이드">
+                    <i class="fa-solid fa-lightbulb text-sm"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- 토스트 알림 컨테이너 (alert() 대체) -->
+        <div id="toast-container" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm pointer-events-none flex flex-col gap-2"></div>
+
+        <!-- =====================================================================
+             화면 1: 메인 홈 (원터치 퀵 무전 & 채널 리스트)
+             ===================================================================== -->
+        <main id="view-home" class="flex-1 flex flex-col p-4 pb-24 overflow-y-auto space-y-5">
+            
+            <!-- 사용자 닉네임 & 빠른 상태 배너 -->
+            <div class="bg-navy-850 border border-slate-800 rounded-2xl p-3.5 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-amber-400" id="user-avatar-initial">나</div>
+                    <div>
+                        <div class="flex items-center gap-1.5">
+                            <input id="nickname-input" type="text" value="대원_01" maxlength="12" onchange="saveNickname(this.value)" class="bg-transparent font-bold text-sm text-white w-24 focus:outline-none focus:border-b focus:border-amber-400" />
+                            <i class="fa-solid fa-pen text-[10px] text-slate-500"></i>
+                        </div>
+                        <p class="text-[11px] text-slate-400">무전 주파수 정상 • 마이크 대기중</p>
+                    </div>
+                </div>
+                <button onclick="simulateIncomingTransmission()" class="px-3 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95">
+                    <i class="fa-solid fa-satellite-dish"></i>
+                    <span>수신 테스트</span>
+                </button>
+            </div>
+
+            <!-- 즐겨찾기 원터치 퀵 무전 채널 리스트 -->
+            <section>
+                <div class="flex items-center justify-between mb-2.5 px-1">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-star text-amber-400"></i> 원터치 퀵 무전 채널
+                    </h2>
+                    <span class="text-[11px] text-slate-500">우측 버튼을 꾹 눌러 즉시 송신</span>
+                </div>
+
+                <div id="channel-list" class="space-y-3">
+                    <!-- 채널 카드들은 JS에서 동적 렌더링됨 -->
+                </div>
+            </section>
+
+            <!-- 무료 올인원 기능 하이라이트 배너 -->
+            <section class="bg-gradient-to-br from-navy-800 to-navy-850 border border-slate-800 rounded-2xl p-4">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400">100% FREE ARCHITECTURE</span>
+                        <h3 class="font-bold text-sm text-white mt-1.5">모든 상황을 위한 3가지 무전 모드</h3>
+                        <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+                            채널에 입장하면 상단 탭에서 <strong class="text-slate-200">일상(보이스필터·자막)</strong>, <strong class="text-slate-200">주행(GPS레이더·오디오덕킹)</strong>, <strong class="text-slate-200">업무(다중채널·CSV로그)</strong> 모드로 즉시 전환할 수 있습니다.
+                        </p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2 mt-3">
+                    <button onclick="enterChannel('SOC101', 'social')" class="py-2 px-2 rounded-xl bg-navy-900 hover:bg-navy-950 border border-slate-700/80 text-center transition">
+                        <div class="text-base">💬</div>
+                        <div class="text-[11px] font-semibold text-slate-200 mt-0.5">일상 모드</div>
+                    </button>
+                    <button onclick="enterChannel('DRV777', 'driving')" class="py-2 px-2 rounded-xl bg-navy-900 hover:bg-navy-950 border border-slate-700/80 text-center transition">
+                        <div class="text-base">🚗</div>
+                        <div class="text-[11px] font-semibold text-slate-200 mt-0.5">주행 모드</div>
+                    </button>
+                    <button onclick="enterChannel('BIZ999', 'business')" class="py-2 px-2 rounded-xl bg-navy-900 hover:bg-navy-950 border border-slate-700/80 text-center transition">
+                        <div class="text-base">🏢</div>
+                        <div class="text-[11px] font-semibold text-slate-200 mt-0.5">업무 모드</div>
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <!-- 홈 화면 하단 고정: 방금 놓친 무전 미니 플레이어 -->
+        <div id="home-mini-player" class="bg-navy-950/95 backdrop-blur-md border-t border-slate-800 px-4 py-3 flex items-center justify-between z-20">
+            <div class="flex items-center gap-3 overflow-hidden">
+                <button onclick="playLastMissedAudio()" id="mini-play-btn" class="w-9 h-9 rounded-full bg-amber-500 text-navy-950 flex items-center justify-center shrink-0 shadow-md active:scale-90 transition">
+                    <i class="fa-solid fa-play text-xs ml-0.5"></i>
+                </button>
+                <div class="truncate">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-[10px] font-bold text-amber-400 uppercase">방금 놓친 무전</span>
+                        <span id="mini-player-channel" class="text-[10px] text-slate-500 font-mono">#DRV777</span>
+                    </div>
+                    <p id="mini-player-text" class="text-xs text-slate-200 truncate font-medium">"선두 차량 3분 뒤 가평 휴게소 진입합니다."</p>
+                </div>
+            </div>
+            <span id="mini-player-time" class="text-[11px] font-mono text-slate-500 shrink-0 ml-2">00:04</span>
+        </div>
+
+        <!-- =====================================================================
+             화면 2: 통합 무전 룸 (일상 / 주행 / 업무 모드 스위처)
+             ===================================================================== -->
+        <section id="view-room" class="hidden flex-1 flex flex-col overflow-hidden">
+            
+            <!-- 무전 룸 상단 바 & 3단 모드 스위처 -->
+            <div class="bg-navy-850 border-b border-slate-800 px-3 pt-2.5 pb-3">
+                <div class="flex items-center justify-between mb-2.5">
+                    <button onclick="leaveChannel()" class="flex items-center gap-1.5 text-xs font-semibold text-slate-300 hover:text-white px-2 py-1 rounded-lg bg-navy-800 border border-slate-700">
+                        <i class="fa-solid fa-chevron-left"></i>
+                        <span>채널 목록</span>
+                    </button>
+                    <div class="text-center">
+                        <h2 id="room-title" class="font-bold text-sm text-white">🚗 주말 투어링 A조</h2>
+                        <div class="flex items-center justify-center gap-2 text-[11px] text-slate-400">
+                            <span class="font-mono text-amber-400" id="room-code-display">CODE: DRV777</span>
+                            <span>•</span>
+                            <span id="room-member-count"><i class="fa-solid fa-users text-[10px]"></i> 4명 접속중</span>
+                        </div>
+                    </div>
+                    <button onclick="copyInviteCode()" class="px-2 py-1 rounded-lg bg-navy-800 hover:bg-navy-700 border border-slate-700 text-xs text-cyan-400" title="초대 코드 복사">
+                        <i class="fa-solid fa-share-nodes"></i>
+                    </button>
+                </div>
+
+                <!-- 3단 모드 스위처 탭 -->
+                <div class="grid grid-cols-3 gap-1 bg-navy-950 p-1 rounded-xl border border-slate-800">
+                    <button id="tab-social" onclick="switchRoomMode('social')" class="mode-tab py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1">
+                        <span>💬</span><span>일상 모드</span>
+                    </button>
+                    <button id="tab-driving" onclick="switchRoomMode('driving')" class="mode-tab py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1">
+                        <span>🚗</span><span>주행 모드</span>
+                    </button>
+                    <button id="tab-business" onclick="switchRoomMode('business')" class="mode-tab py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1">
+                        <span>🏢</span><span>업무 모드</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 중앙 가변 캔버스 영역 -->
+            <div class="flex-1 overflow-y-auto relative flex flex-col">
+
+                <!-- [모드 A] 일상·소셜 모드 캔버스 -->
+                <div id="canvas-social" class="flex-1 flex flex-col p-3.5 space-y-3">
+                    <!-- 실시간 오디오 주파수 파형 & 보이스 필터 선택 -->
+                    <div class="bg-navy-850 border border-slate-800 rounded-2xl p-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-[11px] font-bold text-slate-400 flex items-center gap-1.5">
+                                <i class="fa-solid fa-wave-square text-amber-400"></i> 실시간 오디오 주파수
+                            </span>
+                            <!-- 보이스 필터 선택 -->
+                            <div class="flex items-center gap-1">
+                                <span class="text-[10px] text-slate-500">음성필터:</span>
+                                <select id="voice-filter-select" class="bg-navy-900 border border-slate-700 rounded-lg px-2 py-0.5 text-[11px] text-amber-400 font-semibold focus:outline-none">
+                                    <option value="radio">📻 무전기 노이즈</option>
+                                    <option value="clean">🎙️ 원본 클린</option>
+                                    <option value="high">🐿️ 하이톤 변조</option>
+                                    <option value="deep">🤖 딥보이스 변조</option>
+                                </select>
+                            </div>
+                        </div>
+                        <canvas id="waveform-canvas" class="w-full h-14 bg-navy-950 rounded-xl border border-slate-800/80"></canvas>
+                        
+                        <!-- 퀵 효과음 송출 패드 -->
+                        <div class="grid grid-cols-3 gap-2 mt-2.5">
+                            <button onclick="sendQuickSfx('beep', '📡 호출 신호 (삐빅!)')" class="py-1.5 rounded-xl bg-navy-900 hover:bg-navy-800 border border-slate-700 text-xs font-semibold text-slate-200 flex items-center justify-center gap-1 active:scale-95 transition">
+                                <span>📡</span><span>삐빅 호출</span>
+                            </button>
+                            <button onclick="sendQuickSfx('roger', '✅ 수신 완료 (라저!)')" class="py-1.5 rounded-xl bg-navy-900 hover:bg-navy-800 border border-slate-700 text-xs font-semibold text-emerald-400 flex items-center justify-center gap-1 active:scale-95 transition">
+                                <span>✅</span><span>확인 응답</span>
+                            </button>
+                            <button onclick="sendQuickSfx('alert', '⚠️ 전방 주의 (경고음)')" class="py-1.5 rounded-xl bg-navy-900 hover:bg-navy-800 border border-slate-700 text-xs font-semibold text-amber-400 flex items-center justify-center gap-1 active:scale-95 transition">
+                                <span>⚠️</span><span>주의 신호</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 채팅형 무전 로그 (다시듣기 + STT 자막) -->
+                    <div class="flex-1 flex flex-col min-h-[200px]">
+                        <div class="flex items-center justify-between mb-1.5 px-1">
+                            <span class="text-[11px] font-bold text-slate-400">무전 대화 및 자동 자막(STT)</span>
+                            <button onclick="simulateIncomingTransmission()" class="text-[11px] text-cyan-400 hover:underline font-medium">
+                                + 가상 무전 수신
+                            </button>
+                        </div>
+                        <div id="social-log-list" class="flex-1 space-y-2.5 overflow-y-auto pr-1 max-h-[270px]">
+                            <!-- 로그 아이템 동적 렌더링 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- [모드 B] 주행·아웃도어 모드 캔버스 -->
+                <div id="canvas-driving" class="hidden flex-1 flex flex-col p-3.5 space-y-3">
+                    <!-- 대열 이탈 경고 배너 (조건 충족 시 활성화) -->
+                    <div id="convoy-warning-banner" class="hidden bg-red-500/20 border border-red-500 rounded-xl p-2.5 flex items-center justify-between animate-pulse">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-triangle-exclamation text-red-400 text-base"></i>
+                            <div>
+                                <p class="text-xs font-bold text-red-300">대열 이탈 거리 초과 경고!</p>
+                                <p id="convoy-warning-desc" class="text-[11px] text-red-200">후미 차량(이영희)과 거리가 1.4km 벌어졌습니다.</p>
+                            </div>
+                        </div>
+                        <button onclick="resetConvoyDistance()" class="px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded-lg">대열 복귀</button>
+                    </div>
+
+                    <!-- 실시간 멤버 위치 레이더 & GPS 뷰 -->
+                    <div class="bg-navy-850 border border-slate-800 rounded-2xl p-3 flex flex-col items-center relative radar-bg">
+                        <div class="w-full flex items-center justify-between mb-2 z-10">
+                            <span class="text-[11px] font-bold text-cyan-400 flex items-center gap-1.5">
+                                <i class="fa-solid fa-location-crosshairs"></i> 실시간 GPS 대열 레이더
+                            </span>
+                            <div class="flex items-center gap-1.5">
+                                <button onclick="requestRealGPS()" class="text-[10px] px-2 py-0.5 rounded bg-navy-900 border border-slate-700 text-slate-300 hover:text-white">
+                                    내 GPS 갱신
+                                </button>
+                                <button onclick="toggleConvoySimulation()" id="sim-convoy-btn" class="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 font-semibold">
+                                    이탈 시뮬레이션
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 원형 레이더 UI -->
+                        <div class="relative w-44 h-44 rounded-full border border-cyan-500/30 flex items-center justify-center my-1 bg-navy-950/70 shadow-inner">
+                            <div class="absolute w-28 h-28 rounded-full border border-cyan-500/20"></div>
+                            <div class="absolute w-14 h-14 rounded-full border border-cyan-500/20"></div>
+                            <!-- 레이더 스캔 라인 -->
+                            <div class="absolute inset-0 rounded-full border-t-2 border-cyan-400/40 animate-radar-spin"></div>
+                            
+                            <!-- 중앙: 나 -->
+                            <div class="w-3.5 h-3.5 rounded-full bg-amber-400 ring-4 ring-amber-400/30 z-10" title="내 위치"></div>
+                            <span class="absolute mt-7 text-[10px] font-bold text-amber-300">나 (선두)</span>
+
+                            <!-- 동적 멤버 핀 컨테이너 -->
+                            <div id="radar-pins" class="absolute inset-0"></div>
+                        </div>
+
+                        <div class="w-full flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-2 border-t border-slate-800/80">
+                            <span id="gps-coords-text" class="font-mono text-[10px]">GPS: 여주시 인근 (37.29°N, 127.63°E)</span>
+                            <span class="text-emerald-400 font-semibold">이탈기준: 1.0km</span>
+                        </div>
+                    </div>
+
+                    <!-- 오디오 덕킹(Audio Ducking) 체험 컨트롤러 -->
+                    <div class="bg-navy-850 border border-slate-800 rounded-2xl p-3 flex items-center justify-between">
+                        <div class="flex items-center gap-2.5">
+                            <div id="bgm-icon-box" class="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-400 flex items-center justify-center">
+                                <i class="fa-solid fa-music"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-xs font-bold text-white">오디오 덕킹 (Audio Ducking)</span>
+                                    <span id="ducking-status-badge" class="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400">BGM 대기</span>
+                                </div>
+                                <p class="text-[11px] text-slate-400">음악 재생 중 무전이 오면 배경음을 자동 감소</p>
+                            </div>
+                        </div>
+                        <button onclick="toggleBgmSimulation()" id="bgm-toggle-btn" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition">
+                            BGM 켜기
+                        </button>
+                    </div>
+                </div>
+
+                <!-- [모드 C] 현장·비즈니스 모드 캔버스 -->
+                <div id="canvas-business" class="hidden flex-1 flex flex-col p-3.5 space-y-3">
+                    <!-- 다중 채널 동시 청취(Multi-Watch) 믹서 -->
+                    <div class="bg-navy-850 border border-slate-800 rounded-2xl p-3 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                                <i class="fa-solid fa-sliders text-amber-400"></i> 다중 채널 동시 청취 믹서
+                            </span>
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-mono">MULTI-WATCH ON</span>
+                        </div>
+
+                        <!-- CH 1 -->
+                        <div class="bg-navy-900/90 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-2 min-w-[115px]">
+                                <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                                <div>
+                                    <div class="text-xs font-bold text-slate-200">CH.1 전체공지</div>
+                                    <div class="text-[10px] text-slate-500">최우선 브로드캐스트</div>
+                                </div>
+                            </div>
+                            <input type="range" min="0" max="100" value="100" oninput="updateMixerVol(1, this.value)" class="flex-1 accent-amber-500 h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+                            <span id="mixer-val-1" class="text-[11px] font-mono text-amber-400 w-8 text-right">100%</span>
+                        </div>
+
+                        <!-- CH 2 -->
+                        <div class="bg-navy-900/90 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-2 min-w-[115px]">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                <div>
+                                    <div class="text-xs font-bold text-slate-200">CH.2 현장운영팀</div>
+                                    <div class="text-[10px] text-slate-500">실시간 작업 무전</div>
+                                </div>
+                            </div>
+                            <input type="range" min="0" max="100" value="80" oninput="updateMixerVol(2, this.value)" class="flex-1 accent-emerald-500 h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+                            <span id="mixer-val-2" class="text-[11px] font-mono text-emerald-400 w-8 text-right">80%</span>
+                        </div>
+
+                        <!-- CH 3 -->
+                        <div class="bg-navy-900/90 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-2 min-w-[115px]">
+                                <span class="w-2 h-2 rounded-full bg-cyan-500"></span>
+                                <div>
+                                    <div class="text-xs font-bold text-slate-200">CH.3 물류·지원팀</div>
+                                    <div class="text-[10px] text-slate-500">백업 지원 채널</div>
+                                </div>
+                            </div>
+                            <input type="range" min="0" max="100" value="45" oninput="updateMixerVol(3, this.value)" class="flex-1 accent-cyan-500 h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+                            <span id="mixer-val-3" class="text-[11px] font-mono text-cyan-400 w-8 text-right">45%</span>
+                        </div>
+                    </div>
+
+                    <!-- 현장 무전 기록 아카이브 & CSV 무료 다운로드 -->
+                    <div class="bg-navy-850 border border-slate-800 rounded-2xl p-3 flex-1 flex flex-col">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-slate-300">현장 무전 기록 로그 (STT)</span>
+                            <button onclick="exportLogsToCSV()" class="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-400 text-[11px] font-bold flex items-center gap-1 transition active:scale-95">
+                                <i class="fa-solid fa-file-csv"></i>
+                                <span>CSV 무료 내보내기</span>
+                            </button>
+                        </div>
+                        <div id="business-log-list" class="space-y-1.5 overflow-y-auto max-h-[160px] text-xs font-mono">
+                            <!-- 업무용 타임라인 동적 렌더링 -->
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- =================================================================
+                 하단 고정: 발언권 상태 표시줄 & 통합 PTT 컨트롤러
+                 ================================================================= -->
+            <div class="bg-navy-950 border-t border-slate-800 px-4 pt-2.5 pb-5 z-20">
+                
+                <!-- 발언권 제어(Floor Control) 상태 배지 -->
+                <div class="flex items-center justify-between mb-3 px-2 py-1.5 rounded-xl bg-navy-900 border border-slate-800">
+                    <div class="flex items-center gap-2">
+                        <span id="floor-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                        <span id="floor-status-text" class="text-xs font-bold text-slate-200">수신 대기 중 (IDLE)</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="stt-live-preview" class="text-[11px] text-amber-400 truncate max-w-[140px]"></span>
+                        <span id="floor-state-code" class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">FLOOR: IDLE</span>
+                    </div>
+                </div>
+
+                <!-- PTT 버튼 영역 (주행 모드 시 중앙 버튼 크기 2배 확장) -->
+                <div id="ptt-control-dock" class="flex items-center justify-between gap-3">
+                    
+                    <!-- 좌측: 방금 무전 다시 듣기 -->
+                    <button id="btn-replay-last" onclick="playLastMissedAudio()" class="flex-1 h-16 rounded-2xl bg-navy-850 hover:bg-navy-800 border border-slate-700 flex flex-col items-center justify-center gap-1 text-slate-300 active:scale-95 transition">
+                        <i class="fa-solid fa-rotate-left text-base text-cyan-400"></i>
+                        <span class="text-[11px] font-bold">방금 무전</span>
+                    </button>
+
+                    <!-- 중앙: 메인 PTT 버튼 -->
+                    <button id="main-ptt-btn"
+                        onmousedown="startPTT(event)"
+                        onmouseup="stopPTT(event)"
+                        onmouseleave="stopPTT(event)"
+                        ontouchstart="startPTT(event)"
+                        ontouchend="stopPTT(event)"
+                        class="w-28 h-24 rounded-3xl bg-gradient-to-b from-amber-400 to-amber-600 text-navy-950 flex flex-col items-center justify-center gap-1 ptt-btn-shadow transition-all duration-150 cursor-pointer relative select-none">
+                        <i id="ptt-mic-icon" class="fa-solid fa-microphone text-2xl"></i>
+                        <span id="ptt-btn-label" class="text-xs font-extrabold tracking-tight">꾹 눌러 말하기</span>
+                        <span class="text-[9px] font-mono opacity-75 hidden sm:inline">[SPACE]</span>
+                    </button>
+
+                    <!-- 우측: SOS 긴급 호출 (Priority Override) -->
+                    <button id="btn-sos-override" onclick="triggerSOSOverride()" class="flex-1 h-16 rounded-2xl bg-red-950/60 hover:bg-red-900/70 border border-red-500/50 flex flex-col items-center justify-center gap-1 text-red-400 active:scale-95 transition">
+                        <i class="fa-solid fa-tower-broadcast text-base text-red-500"></i>
+                        <span class="text-[11px] font-bold">SOS 긴급</span>
+                    </button>
+
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- =====================================================================
+         모달 1: 6자리 채널 코드 입장 / 새 채널 만들기
+         ===================================================================== -->
+    <div id="channel-modal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-navy-900 border border-slate-700 rounded-3xl w-full max-w-sm p-5 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="font-bold text-base text-white flex items-center gap-2">
+                    <i class="fa-solid fa-walkie-talkie text-amber-400"></i> 채널 입장 및 개설
+                </h3>
+                <button onclick="closeModal('channel-modal')" class="text-slate-400 hover:text-white w-7 h-7 rounded-full bg-navy-800 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- 6자리 코드로 입장 -->
+            <div class="bg-navy-850 p-3.5 rounded-2xl border border-slate-800 space-y-2.5">
+                <label class="text-xs font-bold text-slate-300 block">6자리 초대 코드로 바로 입장</label>
+                <div class="flex gap-2">
+                    <input id="join-code-input" type="text" maxlength="6" placeholder="예: DRV777" class="flex-1 bg-navy-950 border border-slate-700 rounded-xl px-3 py-2 text-sm font-mono uppercase text-amber-400 focus:outline-none focus:border-amber-400">
+                    <button onclick="joinByCode()" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-navy-950 font-bold text-xs transition">입장</button>
+                </div>
+            </div>
+
+            <!-- 새 무료 채널 만들기 -->
+            <div class="bg-navy-850 p-3.5 rounded-2xl border border-slate-800 space-y-2.5">
+                <label class="text-xs font-bold text-slate-300 block">새 무료 무전 채널 만들기</label>
+                <input id="new-channel-name" type="text" placeholder="채널 이름 (예: 한강 야간 라이딩)" class="w-full bg-navy-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400">
+                <select id="new-channel-mode" class="w-full bg-navy-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none">
+                    <option value="social">💬 일상·소셜 채널로 시작</option>
+                    <option value="driving">🚗 주행·아웃도어 채널로 시작</option>
+                    <option value="business">🏢 현장·비즈니스 채널로 시작</option>
+                </select>
+                <button onclick="createNewChannel()" class="w-full py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-navy-950 font-bold text-xs transition">
+                    무료 채널 생성 및 입장
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         모달 2: 💡 100% 무료 배포·운영 및 스마트폰 앱(PWA) 설치 가이드
+         ===================================================================== -->
+    <div id="guide-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-navy-900 border border-slate-700 rounded-3xl w-full max-w-md max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="px-5 py-4 bg-navy-950 border-b border-slate-800 flex items-center justify-between">
+                <h3 class="font-bold text-base text-white flex items-center gap-2">
+                    <i class="fa-solid fa-lightbulb text-amber-400"></i> 서버비 0원 무료 배포·운영 가이드
+                </h3>
+                <button onclick="closeModal('guide-modal')" class="text-slate-400 hover:text-white w-7 h-7 rounded-full bg-navy-800 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="p-5 overflow-y-auto space-y-4 text-xs text-slate-300 leading-relaxed">
+                <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-3.5">
+                    <p class="font-bold text-emerald-400 text-sm mb-1">✅ 유지비 0원(평생 무료) 아키텍처 구성</p>
+                    <p class="text-slate-300">이 앱은 단일 HTML 파일과 브라우저 내장 Web Audio/Speech API를 활용하므로 별도의 고가 음성 서버나 유료 STT API 결제가 전혀 필요 없습니다.</p>
+                </div>
+
+                <div class="space-y-2">
+                    <h4 class="font-bold text-white text-sm">1단계: 무료 웹 호스팅 배포 (1분 완료)</h4>
+                    <ul class="list-disc pl-4 space-y-1 text-slate-400">
+                        <li><strong class="text-slate-200">Vercel 또는 GitHub Pages:</strong> 현재 HTML 파일을 <code class="text-amber-400">index.html</code>로 저장해 업로드하면 무료 HTTPS 도메인이 즉시 발급됩니다. (마이크 권한은 HTTPS 환경에서 자동 활성화)</li>
+                    </ul>
+                </div>
+
+                <div class="space-y-2">
+                    <h4 class="font-bold text-white text-sm">2단계: 실시간 다자간 동기화 무료 연결</h4>
+                    <ul class="list-disc pl-4 space-y-1 text-slate-400">
+                        <li><strong class="text-slate-200">Firebase Spark(무료) 플랜:</strong> 일일 5만 건 읽기 / 2만 건 쓰기가 무료로 제공되어 소규모 모임이나 매장 스태프 무전용으로 비용 없이 운영 가능합니다.</li>
+                        <li>같은 브라우저에서 여러 탭을 열면 <code class="text-cyan-400">BroadcastChannel</code>을 통해 오프라인 상태에서도 즉시 탭 간 무전 동기화를 테스트할 수 있습니다.</li>
+                    </ul>
+                </div>
+
+                <div class="space-y-2">
+                    <h4 class="font-bold text-white text-sm">3단계: 스마트폰 홈 화면에 앱(PWA)처럼 설치</h4>
+                    <ul class="list-disc pl-4 space-y-1 text-slate-400">
+                        <li><strong class="text-slate-200">iOS (Safari):</strong> 하단 공유 버튼(<i class="fa-solid fa-arrow-up-from-bracket"></i>) → <strong>[홈 화면에 추가]</strong> 선택</li>
+                        <li><strong class="text-slate-200">Android (Chrome):</strong> 우측 상단 메뉴(⋮) → <strong>[홈 화면에 추가 / 앱 설치]</strong> 선택</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="p-4 bg-navy-950 border-t border-slate-800">
+                <button onclick="closeModal('guide-modal')" class="w-full py-2.5 rounded-xl bg-amber-500 text-navy-950 font-bold text-xs">확인했습니다</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         실동작 JavaScript + Firebase 실시간 동기화 엔진
+         ===================================================================== -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ---------------------------------------------------------------------
+        // 1. 앱 전역 상태 및 기본 채널 데이터
+        // ---------------------------------------------------------------------
+        const state = {
+            userId: 'user_' + Math.random().toString(36).substring(2, 8),
+            nickname: '대원_01',
+            status: 'online',
+            currentChannelId: null,
+            currentMode: 'social', // 'social' | 'driving' | 'business'
+            floorState: 'IDLE',    // 'IDLE' | 'GRANTED' | 'BUSY' | 'OVERRIDE'
+            activeSpeaker: null,
+            isRecording: false,
+            lastAudioBlobUrl: null,
+            lastAudioText: '선두 차량 3분 뒤 가평 휴게소 진입합니다.',
+            lastAudioChannel: 'DRV777',
+            lastAudioDuration: '00:04',
+            isBgmPlaying: false,
+            convoySimulatedFar: false,
+            mixerVolumes: { 1: 100, 2: 80, 3: 45 },
+            channels: [
+                {
+                    id: 'DRV777',
+                    name: '🚗 주말 투어링 A조',
+                    mode: 'driving',
+                    members: 4,
+                    lastSpeaker: '김민수',
+                    lastMsg: '선두 차량 3분 뒤 가평 휴게소 진입합니다.',
+                    badge: '주행·GPS'
+                },
+                {
+                    id: 'BIZ999',
+                    name: '🏢 1층 홀/주방 스태프',
+                    mode: 'business',
+                    members: 7,
+                    lastSpeaker: '매니저_박',
+                    lastMsg: '테라스 4번 테이블 주문 추가 확인 바랍니다.',
+                    badge: '다중청취'
+                },
+                {
+                    id: 'SOC101',
+                    name: '💬 가족·친구 일상방',
+                    mode: 'social',
+                    members: 3,
+                    lastSpeaker: '지훈',
+                    lastMsg: '퇴근하고 치킨 사갈까? 무전 응답 바람!',
+                    badge: '보이스필터'
+                }
+            ],
+            logs: [
+                {
+                    id: 'init1',
+                    channelId: 'DRV777',
+                    sender: '김민수',
+                    text: '선두 차량 3분 뒤 가평 휴게소 진입합니다.',
+                    time: '방금 전',
+                    duration: '00:04',
+                    isEmergency: false,
+                    audioUrl: null,
+                    filter: 'radio'
+                },
+                {
+                    id: 'init2',
+                    channelId: 'BIZ999',
+                    sender: '매니저_박',
+                    text: 'CH.1 전체공지: 오후 6시 피크타임 전 파트 배치 완료해주세요.',
+                    time: '2분 전',
+                    duration: '00:05',
+                    isEmergency: false,
+                    audioUrl: null,
+                    filter: 'radio'
+                },
+                {
+                    id: 'init3',
+                    channelId: 'SOC101',
+                    sender: '지훈',
+                    text: '퇴근하고 치킨 사갈까? 무전 응답 바람! 치직-',
+                    time: '5분 전',
+                    duration: '00:03',
+                    isEmergency: false,
+                    audioUrl: null,
+                    filter: 'radio'
+                }
+            ]
+        };
+
+        // 오디오 & 녹음 관련 변수
+        let audioCtx = null;
+        let mediaStream = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let analyser = null;
+        let animationFrameId = null;
+        let recognition = null;
+        let currentTranscript = '';
+        let recordStartTime = 0;
+        let bgmOscillator = null;
+        let bgmGainNode = null;
+
+        // 동일 브라우저 탭 간 즉각 동기화용 BroadcastChannel (Firebase 보조)
+        const localBus = new BroadcastChannel('vox_one_realtime_bus');
+        localBus.onmessage = (event) => {
+            const data = event.data;
+            if (!data || data.senderId === state.userId) return;
+            handleRemoteEvent(data);
+        };
+
+        // ---------------------------------------------------------------------
+        // 2. Firebase 실시간 동기화 초기화 (환경 변수 존재 시 자동 연결)
+        // ---------------------------------------------------------------------
+        let db = null;
+        let appId = 'vox-one-free';
+        let firebaseReady = false;
+
+        async function initFirebase() {
+            try {
+                if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                    const firebaseConfig = JSON.parse(__firebase_config);
+                    appId = typeof __app_id !== 'undefined' ? __app_id : 'vox-one-free';
+                    const app = initializeApp(firebaseConfig);
+                    const auth = getAuth(app);
+                    db = getFirestore(app);
+
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    firebaseReady = true;
+                    document.getElementById('sync-badge').textContent = 'CLOUD LIVE';
+                    subscribeToCloudChannel();
+                } else {
+                    document.getElementById('sync-badge').textContent = 'LOCAL LIVE';
+                }
+            } catch (err) {
+                console.warn('Firebase 미설정 상태 - 로컬 실시간 모드로 동작합니다:', err);
+                document.getElementById('sync-badge').textContent = 'LOCAL LIVE';
+            }
+        }
+
+        function subscribeToCloudChannel() {
+            if (!firebaseReady || !db) return;
+            try {
+                const logsCol = collection(db, 'artifacts', appId, 'public', 'data', 'vox_logs');
+                onSnapshot(logsCol, (snapshot) => {
+                    snapshot.docChanges().forEach((change) => {
+                        if (change.type === 'added') {
+                            const item = change.doc.data();
+                            if (item.senderId !== state.userId && !state.logs.some(l => l.id === item.id)) {
+                                receiveRemoteLog(item);
+                            }
+                        }
+                    });
+                }, (error) => {
+                    console.warn('Firestore 구독 대기:', error);
+                });
+            } catch (e) {
+                console.warn(e);
+            }
+        }
+
+        async function broadcastEvent(payload) {
+            // 1) 동일 브라우저 다른 탭으로 즉시 전송
+            localBus.postMessage(payload);
+
+            // 2) Firebase 연결 시 클라우드로 동기화
+            if (firebaseReady && db && payload.type === 'NEW_LOG') {
+                try {
+                    const logsCol = collection(db, 'artifacts', appId, 'public', 'data', 'vox_logs');
+                    await addDoc(logsCol, {
+                        ...payload.log,
+                        senderId: state.userId,
+                        timestamp: Date.now()
+                    });
+                } catch (e) {
+                    console.warn('클라우드 로그 전송 스킵:', e);
+                }
+            }
+        }
+
+        function handleRemoteEvent(data) {
+            if (data.type === 'FLOOR_LOCK') {
+                if (data.channelId === state.currentChannelId) {
+                    setFloorState('BUSY', data.nickname);
+                }
+            } else if (data.type === 'FLOOR_RELEASE') {
+                if (data.channelId === state.currentChannelId) {
+                    setFloorState('IDLE', null);
+                }
+            } else if (data.type === 'NEW_LOG') {
+                receiveRemoteLog(data.log);
+            }
+        }
+
+        function receiveRemoteLog(log) {
+            state.logs.unshift(log);
+            state.lastAudioText = log.text;
+            state.lastAudioChannel = log.channelId;
+            state.lastAudioDuration = log.duration || '00:03';
+            updateMiniPlayer();
+
+            // 오디오 덕킹 적용 (BGM이 켜져 있으면 볼륨을 15%로 낮춤)
+            applyAudioDucking(true);
+            if (log.isEmergency) {
+                playWalkieTone('sos');
+                showToast(`🚨 [긴급 SOS] ${log.sender}: ${log.text}`, 'error');
+            } else {
+                playWalkieTone('roger');
+                showToast(`📻 [${log.channelId}] ${log.sender}님의 무전 수신`, 'info');
+            }
+            setTimeout(() => applyAudioDucking(false), 3000);
+
+            if (state.currentChannelId === log.channelId) {
+                renderRoomLogs();
+            }
+            renderHomeChannels();
+        }
+
+        // ---------------------------------------------------------------------
+        // 3. Web Audio API: 무전기 효과음('삐빅', '치직', 'SOS 사이렌') & 대역폭 필터
+        // ---------------------------------------------------------------------
+        function ensureAudioContext() {
+            if (!audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContextClass();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playWalkieTone(type = 'start') {
+            try {
+                ensureAudioContext();
+                const now = audioCtx.currentTime;
+
+                if (type === 'start') {
+                    // 무전기 PTT 시작음 ('삐빅')
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(1400, now);
+                    osc.frequency.setValueAtTime(1850, now + 0.06);
+                    gain.gain.setValueAtTime(0.18, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.14);
+                } else if (type === 'roger') {
+                    // 무전기 종료 로저 톤 ('치직-삐')
+                    const bufferSize = audioCtx.sampleRate * 0.16;
+                    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 0.06));
+                    }
+                    const noise = audioCtx.createBufferSource();
+                    noise.buffer = buffer;
+
+                    const filter = audioCtx.createBiquadFilter();
+                    filter.type = 'bandpass';
+                    filter.frequency.value = 2100;
+
+                    const gain = audioCtx.createGain();
+                    gain.gain.setValueAtTime(0.22, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    noise.start(now);
+                } else if (type === 'busy') {
+                    // 발언권 거절음 ('뚜뚜')
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(320, now);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.setValueAtTime(0, now + 0.08);
+                    gain.gain.setValueAtTime(0.15, now + 0.12);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.22);
+                } else if (type === 'sos') {
+                    // SOS 긴급 사이렌 경고음
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(650, now);
+                    osc.frequency.linearRampToValueAtTime(1350, now + 0.25);
+                    osc.frequency.linearRampToValueAtTime(650, now + 0.5);
+                    gain.gain.setValueAtTime(0.28, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.55);
+                }
+            } catch (e) {
+                console.warn('오디오 재생 예외:', e);
+            }
+        }
+
+        // 녹음된 음성을 무전기 필터(대역통과 + 변조)를 거쳐 재생
+        window.playAudioWithFilter = function(audioUrl, filterType = 'radio') {
+            if (!audioUrl) {
+                // 녹음 파일이 없는 가상 무전의 경우 무전 효과음 + TTS 음성 합성으로 읽어주기
+                playWalkieTone('start');
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                    const utter = new SpeechSynthesisUtterance(state.lastAudioText);
+                    utter.lang = 'ko-KR';
+                    utter.rate = 1.12;
+                    utter.onend = () => playWalkieTone('roger');
+                    window.speechSynthesis.speak(utter);
+                }
+                return;
+            }
+
+            try {
+                ensureAudioContext();
+                playWalkieTone('start');
+                const audio = new Audio(audioUrl);
+                if (filterType === 'high') audio.playbackRate = 1.25;
+                if (filterType === 'deep') audio.playbackRate = 0.82;
+
+                const source = audioCtx.createMediaElementSource(audio);
+                if (filterType === 'radio') {
+                    const bandpass = audioCtx.createBiquadFilter();
+                    bandpass.type = 'bandpass';
+                    bandpass.frequency.value = 1600;
+                    bandpass.Q.value = 1.4;
+                    source.connect(bandpass);
+                    bandpass.connect(audioCtx.destination);
+                } else {
+                    source.connect(audioCtx.destination);
+                }
+
+                audio.onended = () => playWalkieTone('roger');
+                audio.play();
+            } catch (e) {
+                // 폴백: 기본 오디오 재생
+                const fallbackAudio = new Audio(audioUrl);
+                fallbackAudio.play();
+            }
+        };
+
+        window.playLastMissedAudio = function() {
+            const latestWithAudio = state.logs.find(l => l.audioUrl);
+            if (latestWithAudio) {
+                playAudioWithFilter(latestWithAudio.audioUrl, latestWithAudio.filter || 'radio');
+                showToast(`↺ 방금 무전 재생 (${latestWithAudio.sender})`, 'info');
+            } else {
+                playAudioWithFilter(null, 'radio');
+                showToast(`↺ 최근 무전 음성 안내 재생`, 'info');
+            }
+        };
+
+        // ---------------------------------------------------------------------
+        // 4. Web Speech API: 무료 실시간 음성 자막(STT) 초기화
+        // ---------------------------------------------------------------------
+        function initSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) return null;
+
+            const recog = new SpeechRecognition();
+            recog.lang = 'ko-KR';
+            recog.continuous = true;
+            recog.interimResults = true;
+
+            recog.onresult = (event) => {
+                let interim = '';
+                let finalStr = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalStr += event.results[i][0].transcript;
+                    } else {
+                        interim += event.results[i][0].transcript;
+                    }
+                }
+                if (finalStr) currentTranscript += finalStr + ' ';
+                const previewEl = document.getElementById('stt-live-preview');
+                if (previewEl) {
+                    previewEl.textContent = (currentTranscript + interim).trim();
+                }
+            };
+
+            recog.onerror = (e) => {
+                console.warn('STT 인식 상태:', e.error);
+            };
+            return recog;
+        }
+
+        // ---------------------------------------------------------------------
+        // 5. 핵심 PTT (Push-to-Talk) 송신 로직 및 실시간 파형 시각화
+        // ---------------------------------------------------------------------
+        window.startPTT = async function(e, targetChannelId = null) {
+            if (e) e.preventDefault();
+            if (state.isRecording) return;
+
+            // 누군가 이미 송신 중(BUSY)이면 발언권 충돌 피드백
+            if (state.floorState === 'BUSY') {
+                playWalkieTone('busy');
+                if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
+                showToast(`⛔ ${state.activeSpeaker}님이 송신 중입니다!`, 'error');
+                return;
+            }
+
+            const activeChan = targetChannelId || state.currentChannelId || 'DRV777';
+            state.isRecording = true;
+            currentTranscript = '';
+            recordStartTime = Date.now();
+
+            // UI 상태 업데이트
+            setFloorState('GRANTED', state.nickname);
+            playWalkieTone('start');
+            if (navigator.vibrate) navigator.vibrate(35);
+
+            const pttBtn = document.getElementById('main-ptt-btn');
+            const pttLabel = document.getElementById('ptt-btn-label');
+            if (pttBtn && !targetChannelId) {
+                pttBtn.classList.add('ptt-btn-active', 'from-red-500', 'to-red-600', 'text-white');
+                pttBtn.classList.remove('from-amber-400', 'to-amber-600', 'text-navy-950');
+                pttLabel.textContent = '송신 중...';
+            }
+
+            // 다른 기기/탭에 발언권 잠금 브로드캐스트
+            broadcastEvent({
+                type: 'FLOOR_LOCK',
+                channelId: activeChan,
+                senderId: state.userId,
+                nickname: state.nickname
+            });
+
+            // Web Speech STT 시작
+            try {
+                if (!recognition) recognition = initSpeechRecognition();
+                if (recognition) recognition.start();
+            } catch (err) {}
+
+            // 실제 마이크 스트림 캡처 및 파형 분석
+            try {
+                ensureAudioContext();
+                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(mediaStream);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (ev) => {
+                    if (ev.data.size > 0) audioChunks.push(ev.data);
+                };
+                mediaRecorder.start();
+
+                const source = audioCtx.createMediaStreamSource(mediaStream);
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 64;
+                source.connect(analyser);
+                drawWaveform();
+            } catch (micErr) {
+                // 마이크 권한 거부/미연결 환경에서도 시뮬레이션 파형으로 정상 동작
+                drawSimulatedWaveform();
+            }
+        };
+
+        window.stopPTT = function(e, targetChannelId = null) {
+            if (e) e.preventDefault();
+            if (!state.isRecording) return;
+
+            state.isRecording = false;
+            const activeChan = targetChannelId || state.currentChannelId || 'DRV777';
+            const durationSec = Math.max(1, Math.round((Date.now() - recordStartTime) / 1000));
+            const durationFormatted = `00:${durationSec < 10 ? '0' + durationSec : durationSec}`;
+
+            // UI 원복
+            setFloorState('IDLE', null);
+            playWalkieTone('roger');
+            const pttBtn = document.getElementById('main-ptt-btn');
+            const pttLabel = document.getElementById('ptt-btn-label');
+            if (pttBtn) {
+                pttBtn.classList.remove('ptt-btn-active', 'from-red-500', 'to-red-600', 'text-white');
+                pttBtn.classList.add('from-amber-400', 'to-amber-600', 'text-navy-950');
+                pttLabel.textContent = '꾹 눌러 말하기';
+            }
+            document.getElementById('stt-live-preview').textContent = '';
+
+            // STT 종료
+            try {
+                if (recognition) recognition.stop();
+            } catch (err) {}
+
+            // 파형 애니메이션 정지
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            clearWaveform();
+
+            // 발언권 해제 브로드캐스트
+            broadcastEvent({
+                type: 'FLOOR_RELEASE',
+                channelId: activeChan,
+                senderId: state.userId
+            });
+
+            const filterType = document.getElementById('voice-filter-select')?.value || 'radio';
+            const finalSpokenText = currentTranscript.trim() || `[음성 무전 송신 완료 • ${durationSec}초]`;
+
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    saveAndBroadcastLog(activeChan, finalSpokenText, durationFormatted, audioUrl, filterType, false);
+                    if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+                };
+                mediaRecorder.stop();
+            } else {
+                saveAndBroadcastLog(activeChan, finalSpokenText, durationFormatted, null, filterType, false);
+            }
+
+            if (targetChannelId) {
+                showToast(`📡 [${targetChannelId}] 퀵 무전 송신 완료!`, 'success');
+            }
+        };
+
+        function saveAndBroadcastLog(channelId, text, duration, audioUrl, filter, isEmergency) {
+            const newLog = {
+                id: 'log_' + Date.now(),
+                channelId,
+                sender: state.nickname,
+                text,
+                time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+                duration,
+                audioUrl,
+                filter,
+                isEmergency
+            };
+
+            state.logs.unshift(newLog);
+            state.lastAudioText = text;
+            state.lastAudioChannel = channelId;
+            state.lastAudioDuration = duration;
+
+            // 채널 리스트의 최근 메시지 업데이트
+            const ch = state.channels.find(c => c.id === channelId);
+            if (ch) {
+                ch.lastSpeaker = state.nickname;
+                ch.lastMsg = text;
+            }
+
+            updateMiniPlayer();
+            renderHomeChannels();
+            if (state.currentChannelId === channelId) {
+                renderRoomLogs();
+            }
+
+            broadcastEvent({
+                type: 'NEW_LOG',
+                senderId: state.userId,
+                log: { ...newLog, audioUrl: null } // Blob URL은 로컬 전용이므로 텍스트/메타데이터 동기화
+            });
+        }
+
+        // 키보드 스페이스바 PTT 단축키 지원
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && !e.repeat && document.activeElement.tagName !== 'INPUT') {
+                if (state.currentChannelId) {
+                    e.preventDefault();
+                    startPTT();
+                }
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') {
+                if (state.currentChannelId && state.isRecording) {
+                    e.preventDefault();
+                    stopPTT();
+                }
+            }
+        });
+
+        // ---------------------------------------------------------------------
+        // 6. 실시간 오디오 파형 캔버스 렌더링
+        // ---------------------------------------------------------------------
+        function drawWaveform() {
+            const canvas = document.getElementById('waveform-canvas');
+            if (!canvas || !analyser) return;
+            const ctx = canvas.getContext('2d');
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            function render() {
+                if (!state.isRecording) return;
+                animationFrameId = requestAnimationFrame(render);
+                analyser.getByteFrequencyData(dataArray);
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const barWidth = (canvas.width / bufferLength) * 1.8;
+                let x = 0;
+
+                for (let i = 0; i < bufferLength; i++) {
+                    const barHeight = (dataArray[i] / 255) * canvas.height;
+                    ctx.fillStyle = i % 2 === 0 ? '#F59E0B' : '#EF4444';
+                    ctx.fillRect(x, (canvas.height - barHeight) / 2, barWidth - 2, Math.max(4, barHeight));
+                    x += barWidth;
+                }
+            }
+            render();
+        }
+
+        function drawSimulatedWaveform() {
+            const canvas = document.getElementById('waveform-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            function render() {
+                if (!state.isRecording) return;
+                animationFrameId = requestAnimationFrame(render);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const bars = 28;
+                const barWidth = canvas.width / bars;
+                for (let i = 0; i < bars; i++) {
+                    const h = (Math.sin(Date.now() * 0.015 + i) * 0.5 + 0.5) * (canvas.height * 0.75) + 4;
+                    ctx.fillStyle = '#F59E0B';
+                    ctx.fillRect(i * barWidth + 2, (canvas.height - h) / 2, barWidth - 4, h);
+                }
+            }
+            render();
+        }
+
+        function clearWaveform() {
+            const canvas = document.getElementById('waveform-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#334155';
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+        }
+
+        // ---------------------------------------------------------------------
+        // 7. SOS 긴급 전체 방송 (Priority Override) & 가상 수신 테스트
+        // ---------------------------------------------------------------------
+        window.triggerSOSOverride = function() {
+            const activeChan = state.currentChannelId || 'DRV777';
+            setFloorState('OVERRIDE', state.nickname);
+            playWalkieTone('sos');
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 300]);
+
+            const sosMsg = `🚨 [긴급 SOS 호출] ${state.nickname}님이 최우선 긴급 방송을 발령했습니다! 전 대원 즉시 응답 바랍니다.`;
+            saveAndBroadcastLog(activeChan, sosMsg, '00:03', null, 'radio', true);
+            showToast('🚨 SOS 긴급 전체 방송이 최우선 송출되었습니다!', 'error');
+
+            setTimeout(() => {
+                setFloorState('IDLE', null);
+            }, 3000);
+        };
+
+        window.simulateIncomingTransmission = function() {
+            if (state.isRecording) return;
+            const activeChan = state.currentChannelId || 'DRV777';
+            const sampleMessages = {
+                DRV777: { sender: '후미_이영희', text: '후미 차량 안전거리 유지 중입니다. 다음 분기점에서 우회전합니다.' },
+                BIZ999: { sender: '물류팀_최대리', text: 'CH.2 현장팀: 2번 게이트 화물 하역 완료되었습니다.' },
+                SOC101: { sender: '민지', text: '나 지금 역 앞 도착했어! 다들 어디쯤이야? 오버!' }
+            };
+            const sample = sampleMessages[activeChan] || sampleMessages.DRV777;
+
+            setFloorState('BUSY', sample.sender);
+            playWalkieTone('start');
+            applyAudioDucking(true);
+            showToast(`📡 ${sample.sender}님이 송신 중입니다...`, 'info');
+
+            setTimeout(() => {
+                setFloorState('IDLE', null);
+                playWalkieTone('roger');
+                applyAudioDucking(false);
+
+                const newLog = {
+                    id: 'sim_' + Date.now(),
+                    channelId: activeChan,
+                    sender: sample.sender,
+                    text: sample.text,
+                    time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+                    duration: '00:04',
+                    audioUrl: null,
+                    filter: 'radio',
+                    isEmergency: false
+                };
+                state.logs.unshift(newLog);
+                state.lastAudioText = sample.text;
+                state.lastAudioChannel = activeChan;
+                updateMiniPlayer();
+                renderHomeChannels();
+                if (state.currentChannelId === activeChan) renderRoomLogs();
+            }, 2200);
+        };
+
+        window.sendQuickSfx = function(type, label) {
+            const activeChan = state.currentChannelId || 'SOC101';
+            if (type === 'alert') playWalkieTone('sos');
+            else if (type === 'roger') playWalkieTone('roger');
+            else playWalkieTone('start');
+
+            saveAndBroadcastLog(activeChan, label, '00:01', null, 'radio', false);
+        };
+
+        // ---------------------------------------------------------------------
+        // 8. 주행 모드: GPS 레이더, 대열 이탈 시뮬레이션, 오디오 덕킹
+        // ---------------------------------------------------------------------
+        function renderRadarPins() {
+            const container = document.getElementById('radar-pins');
+            if (!container) return;
+
+            const members = state.convoySimulatedFar
+                ? [
+                    { name: '김민수', dist: '350m', top: '22%', left: '68%', far: false },
+                    { name: '이영희', dist: '1.4km', top: '86%', left: '18%', far: true },
+                    { name: '박준호', dist: '520m', top: '65%', left: '75%', far: false }
+                  ]
+                : [
+                    { name: '김민수', dist: '180m', top: '28%', left: '64%', far: false },
+                    { name: '이영희', dist: '320m', top: '68%', left: '30%', far: false },
+                    { name: '박준호', dist: '240m', top: '58%', left: '70%', far: false }
+                  ];
+
+            container.innerHTML = members.map(m => `
+                <div style="top:${m.top}; left:${m.left};" class="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+                    <span class="w-2.5 h-2.5 rounded-full ${m.far ? 'bg-red-500 animate-ping' : 'bg-cyan-400'}"></span>
+                    <span class="text-[9px] font-bold px-1 rounded bg-navy-950/90 ${m.far ? 'text-red-400 border border-red-500/50' : 'text-cyan-300'} whitespace-nowrap mt-0.5">
+                        ${m.name} (${m.dist})
+                    </span>
+                </div>
+            `).join('');
+
+            const warningBanner = document.getElementById('convoy-warning-banner');
+            if (state.convoySimulatedFar) {
+                warningBanner.classList.remove('hidden');
+                playWalkieTone('sos');
+            } else {
+                warningBanner.classList.add('hidden');
+            }
+        }
+
+        window.toggleConvoySimulation = function() {
+            state.convoySimulatedFar = !state.convoySimulatedFar;
+            renderRadarPins();
+        };
+
+        window.resetConvoyDistance = function() {
+            state.convoySimulatedFar = false;
+            renderRadarPins();
+            showToast('✅ 대열 거리 정상 범위(1.0km 이내)로 복귀했습니다.', 'success');
+        };
+
+        window.requestRealGPS = function() {
+            if (!navigator.geolocation) {
+                showToast('이 기기는 GPS 위치 조회를 지원하지 않습니다.', 'error');
+                return;
+            }
+            showToast('📡 현재 GPS 좌표를 수신하고 있습니다...', 'info');
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const lat = pos.coords.latitude.toFixed(4);
+                    const lon = pos.coords.longitude.toFixed(4);
+                    document.getElementById('gps-coords-text').textContent = `GPS: ${lat}°N, ${lon}°E (실시간 연동)`;
+                    showToast('📍 실제 GPS 위치가 대열 레이더에 반영되었습니다.', 'success');
+                },
+                () => {
+                    showToast('위치 권한이 차단되어 기본 경로 좌표를 사용합니다.', 'info');
+                }
+            );
+        };
+
+        // 오디오 덕킹 (BGM 재생 및 무전 수신 시 볼륨 자동 감소)
+        window.toggleBgmSimulation = function() {
+            ensureAudioContext();
+            const btn = document.getElementById('bgm-toggle-btn');
+            const badge = document.getElementById('ducking-status-badge');
+
+            if (!state.isBgmPlaying) {
+                bgmOscillator = audioCtx.createOscillator();
+                bgmGainNode = audioCtx.createGain();
+                bgmOscillator.type = 'sine';
+                bgmOscillator.frequency.setValueAtTime(220, audioCtx.currentTime);
+                bgmGainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                bgmOscillator.connect(bgmGainNode);
+                bgmGainNode.connect(audioCtx.destination);
+                bgmOscillator.start();
+
+                state.isBgmPlaying = true;
+                btn.textContent = 'BGM 끄기';
+                btn.classList.replace('bg-indigo-600', 'bg-slate-700');
+                badge.textContent = 'BGM 정상 출력 (100%)';
+                badge.className = 'text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300';
+                showToast('🎵 배경음악 재생 시작! 이제 [수신 테스트]를 눌러 오디오 덕킹을 체험하세요.', 'info');
+            } else {
+                if (bgmOscillator) {
+                    bgmOscillator.stop();
+                    bgmOscillator.disconnect();
+                }
+                state.isBgmPlaying = false;
+                btn.textContent = 'BGM 켜기';
+                btn.classList.replace('bg-slate-700', 'bg-indigo-600');
+                badge.textContent = 'BGM 대기';
+                badge.className = 'text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400';
+            }
+        };
+
+        function applyAudioDucking(isDucking) {
+            if (!state.isBgmPlaying || !bgmGainNode || !audioCtx) return;
+            const badge = document.getElementById('ducking-status-badge');
+            if (isDucking) {
+                bgmGainNode.gain.setTargetAtTime(0.01, audioCtx.currentTime, 0.05);
+                badge.textContent = '🔉 무전 수신 중 자동 감쇠 (15%)';
+                badge.className = 'text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold';
+            } else {
+                bgmGainNode.gain.setTargetAtTime(0.08, audioCtx.currentTime, 0.1);
+                badge.textContent = 'BGM 정상 출력 (100%)';
+                badge.className = 'text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300';
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // 9. 업무 모드: 다중 채널 믹서 & CSV 무료 내보내기
+        // ---------------------------------------------------------------------
+        window.updateMixerVol = function(chNum, val) {
+            state.mixerVolumes[chNum] = val;
+            document.getElementById(`mixer-val-${chNum}`).textContent = `${val}%`;
+        };
+
+        window.exportLogsToCSV = function() {
+            const headers = ['시간,채널코드,송신자,긴급여부,무전내용(STT)'];
+            const rows = state.logs.map(l =>
+                `"${l.time}","${l.channelId}","${l.sender}","${l.isEmergency ? 'SOS' : '일반'}","${l.text.replace(/"/g, '""')}"`
+            );
+            const csvContent = '\uFEFF' + [headers, ...rows].join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `VOX_ONE_무전기록_${new Date().toISOString().slice(0, 10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('📥 무전 기록 CSV 파일이 무료 다운로드되었습니다.', 'success');
+        };
+
+        // ---------------------------------------------------------------------
+        // 10. 화면 전환 및 UI 렌더링 함수
+        // ---------------------------------------------------------------------
+        function setFloorState(newState, speakerName) {
+            state.floorState = newState;
+            state.activeSpeaker = speakerName;
+
+            const dot = document.getElementById('floor-dot');
+            const text = document.getElementById('floor-status-text');
+            const code = document.getElementById('floor-state-code');
+
+            if (!dot || !text || !code) return;
+
+            if (newState === 'IDLE') {
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400';
+                text.textContent = '수신 대기 중 (누구나 송신 가능)';
+                text.className = 'text-xs font-bold text-slate-200';
+                code.textContent = 'FLOOR: IDLE';
+            } else if (newState === 'GRANTED') {
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping';
+                text.textContent = `🎙️ 내 음성 송신 중... (${speakerName})`;
+                text.className = 'text-xs font-bold text-amber-400';
+                code.textContent = 'FLOOR: GRANTED';
+            } else if (newState === 'BUSY') {
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse';
+                text.textContent = `🔴 ${speakerName}님 송신 중...`;
+                text.className = 'text-xs font-bold text-red-400';
+                code.textContent = 'FLOOR: BUSY';
+            } else if (newState === 'OVERRIDE') {
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-red-500 animate-ping';
+                text.textContent = `🚨 SOS 긴급 우선 방송 송출 중!`;
+                text.className = 'text-xs font-bold text-red-400';
+                code.textContent = 'FLOOR: OVERRIDE';
+            }
+        }
+
+        function renderHomeChannels() {
+            const listEl = document.getElementById('channel-list');
+            if (!listEl) return;
+
+            listEl.innerHTML = state.channels.map(ch => `
+                <div class="bg-navy-850 hover:bg-navy-800/90 border border-slate-800 rounded-2xl p-3.5 flex items-center justify-between gap-3 transition shadow-sm">
+                    <div onclick="enterChannel('${ch.id}', '${ch.mode}')" class="flex-1 cursor-pointer overflow-hidden">
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-bold text-sm text-white truncate">${ch.name}</h3>
+                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-navy-950 text-amber-400 border border-slate-700">${ch.badge}</span>
+                        </div>
+                        <p class="text-xs text-slate-400 truncate mt-1">
+                            <span class="text-slate-300 font-semibold">${ch.lastSpeaker}:</span> ${ch.lastMsg}
+                        </p>
+                        <div class="flex items-center gap-2 mt-1.5 text-[10px] text-slate-500 font-mono">
+                            <span>#${ch.id}</span>
+                            <span>•</span>
+                            <span class="text-emerald-400">● ${ch.members}명 접속</span>
+                        </div>
+                    </div>
+
+                    <!-- 방에 들어가지 않고 바로 눌러 쏘는 미니 PTT 버튼 -->
+                    <button
+                        onmousedown="startPTT(event, '${ch.id}')"
+                        onmouseup="stopPTT(event, '${ch.id}')"
+                        ontouchstart="startPTT(event, '${ch.id}')"
+                        ontouchend="stopPTT(event, '${ch.id}')"
+                        class="w-14 h-14 rounded-2xl bg-gradient-to-b from-amber-400 to-amber-600 active:from-red-500 active:to-red-600 text-navy-950 active:text-white flex flex-col items-center justify-center shrink-0 shadow-lg shadow-amber-500/20 active:scale-90 transition cursor-pointer">
+                        <i class="fa-solid fa-microphone text-base"></i>
+                        <span class="text-[9px] font-extrabold mt-0.5">즉시무전</span>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function renderRoomLogs() {
+            const channelLogs = state.logs.filter(l => l.channelId === state.currentChannelId);
+            const socialList = document.getElementById('social-log-list');
+            const bizList = document.getElementById('business-log-list');
+
+            if (socialList) {
+                socialList.innerHTML = channelLogs.length === 0
+                    ? `<div class="text-center text-xs text-slate-500 py-8">하단 PTT 버튼을 꾹 눌러 첫 무전을 보내보세요!</div>`
+                    : channelLogs.map(log => {
+                        const isMine = log.sender === state.nickname;
+                        return `
+                            <div class="p-3 rounded-2xl border ${log.isEmergency ? 'bg-red-950/40 border-red-500/60' : isMine ? 'bg-amber-500/10 border-amber-500/30 ml-4' : 'bg-navy-850 border-slate-800 mr-4'}">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs font-bold ${log.isEmergency ? 'text-red-400' : isMine ? 'text-amber-400' : 'text-cyan-400'}">
+                                        ${log.sender} ${isMine ? '(나)' : ''}
+                                    </span>
+                                    <span class="text-[10px] font-mono text-slate-500">${log.time} • ${log.duration}</span>
+                                </div>
+                                <p class="text-xs text-slate-200 leading-relaxed">${log.text}</p>
+                                <div class="mt-2 flex items-center justify-between">
+                                    <button onclick="playAudioWithFilter(${log.audioUrl ? `'${log.audioUrl}'` : 'null'}, '${log.filter || 'radio'}')" class="px-2.5 py-1 rounded-lg bg-navy-900 hover:bg-navy-950 border border-slate-700 text-[11px] font-semibold text-amber-400 flex items-center gap-1.5 active:scale-95 transition">
+                                        <i class="fa-solid fa-volume-high"></i>
+                                        <span>무전 음성 다시듣기</span>
+                                    </button>
+                                    <span class="text-[10px] text-slate-500 font-mono">STT 자동변환</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+            }
+
+            if (bizList) {
+                bizList.innerHTML = channelLogs.map(log => `
+                    <div class="p-2 rounded-lg bg-navy-900 border border-slate-800/80 flex items-start justify-between gap-2">
+                        <div>
+                            <span class="text-amber-400 font-bold">[${log.time}] ${log.sender}:</span>
+                            <span class="text-slate-200">${log.text}</span>
+                        </div>
+                        <button onclick="playAudioWithFilter(${log.audioUrl ? `'${log.audioUrl}'` : 'null'}, 'radio')" class="text-cyan-400 hover:text-cyan-300 shrink-0 px-1">
+                            <i class="fa-solid fa-play"></i>
+                        </button>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function updateMiniPlayer() {
+            document.getElementById('mini-player-text').textContent = `"${state.lastAudioText}"`;
+            document.getElementById('mini-player-channel').textContent = `#${state.lastAudioChannel}`;
+            document.getElementById('mini-player-time').textContent = state.lastAudioDuration;
+        }
+
+        window.enterChannel = function(channelId, mode = 'social') {
+            const ch = state.channels.find(c => c.id === channelId);
+            if (!ch) return;
+
+            state.currentChannelId = channelId;
+            document.getElementById('room-title').textContent = ch.name;
+            document.getElementById('room-code-display').textContent = `CODE: ${ch.id}`;
+            document.getElementById('room-member-count').innerHTML = `<i class="fa-solid fa-users text-[10px]"></i> ${ch.members}명 접속중`;
+
+            document.getElementById('view-home').classList.add('hidden');
+            document.getElementById('home-mini-player').classList.add('hidden');
+            document.getElementById('view-room').classList.remove('hidden');
+
+            switchRoomMode(mode || ch.mode);
+            renderRoomLogs();
+            clearWaveform();
+        };
+
+        window.leaveChannel = function() {
+            state.currentChannelId = null;
+            document.getElementById('view-room').classList.add('hidden');
+            document.getElementById('view-home').classList.remove('hidden');
+            document.getElementById('home-mini-player').classList.remove('hidden');
+            renderHomeChannels();
+        };
+
+        window.switchRoomMode = function(mode) {
+            state.currentMode = mode;
+
+            // 탭 활성화 스타일
+            ['social', 'driving', 'business'].forEach(m => {
+                const tab = document.getElementById(`tab-${m}`);
+                const canvas = document.getElementById(`canvas-${m}`);
+                if (m === mode) {
+                    tab.className = 'mode-tab py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 bg-amber-500 text-navy-950 shadow';
+                    canvas.classList.remove('hidden');
+                } else {
+                    tab.className = 'mode-tab py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 text-slate-400 hover:text-white';
+                    canvas.classList.add('hidden');
+                }
+            });
+
+            // 주행 모드일 때 하단 PTT 버튼 면적 2배 확장 (안전 운전 UX)
+            const pttBtn = document.getElementById('main-ptt-btn');
+            const sideBtns = [document.getElementById('btn-replay-last'), document.getElementById('btn-sos-override')];
+            if (mode === 'driving') {
+                pttBtn.classList.remove('w-28', 'h-24');
+                pttBtn.classList.add('w-44', 'h-32', 'text-base');
+                sideBtns.forEach(b => { b.classList.remove('h-16'); b.classList.add('h-24'); });
+                renderRadarPins();
+            } else {
+                pttBtn.classList.remove('w-44', 'h-32', 'text-base');
+                pttBtn.classList.add('w-28', 'h-24');
+                sideBtns.forEach(b => { b.classList.remove('h-24'); b.classList.add('h-16'); });
+            }
+        };
+
+        // ---------------------------------------------------------------------
+        // 11. 유틸리티: 모달, 초대 코드 복사, 상태 변경, 토스트
+        // ---------------------------------------------------------------------
+        window.openModal = function(id) {
+            document.getElementById(id).classList.remove('hidden');
+        };
+        window.closeModal = function(id) {
+            document.getElementById(id).classList.add('hidden');
+        };
+
+        window.saveNickname = function(val) {
+            const clean = val.trim() || '대원_01';
+            state.nickname = clean;
+            document.getElementById('user-avatar-initial').textContent = clean.slice(0, 1);
+            showToast(`닉네임이 '${clean}'(으)로 변경되었습니다.`, 'info');
+        };
+
+        window.updateUserStatus = function(val) {
+            state.status = val;
+            if (val === 'driving' && state.currentChannelId) switchRoomMode('driving');
+            if (val === 'working' && state.currentChannelId) switchRoomMode('business');
+        };
+
+        window.copyInviteCode = function() {
+            const code = state.currentChannelId || 'DRV777';
+            const tempInput = document.createElement('input');
+            tempInput.value = code;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            showToast(`📋 채널 초대 코드 [${code}]가 클립보드에 복사되었습니다!`, 'success');
+        };
+
+        window.joinByCode = function() {
+            const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+            if (code.length < 4) {
+                showToast('4~6자리 채널 코드를 입력해주세요.', 'error');
+                return;
+            }
+            let existing = state.channels.find(c => c.id === code);
+            if (!existing) {
+                existing = {
+                    id: code,
+                    name: `📡 채널 #${code}`,
+                    mode: 'social',
+                    members: 2,
+                    lastSpeaker: '시스템',
+                    lastMsg: '새 무전 주파수에 연결되었습니다.',
+                    badge: '커스텀'
+                };
+                state.channels.unshift(existing);
+            }
+            closeModal('channel-modal');
+            renderHomeChannels();
+            enterChannel(code, existing.mode);
+        };
+
+        window.createNewChannel = function() {
+            const nameInput = document.getElementById('new-channel-name').value.trim();
+            const mode = document.getElementById('new-channel-mode').value;
+            const randomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const icon = mode === 'driving' ? '🚗' : mode === 'business' ? '🏢' : '💬';
+
+            const newCh = {
+                id: randomCode,
+                name: `${icon} ${nameInput || '새 무전 채널'}`,
+                mode,
+                members: 1,
+                lastSpeaker: state.nickname,
+                lastMsg: '채널이 개설되었습니다. 초대 코드를 공유하세요!',
+                badge: mode === 'driving' ? '주행·GPS' : mode === 'business' ? '다중청취' : '일상·자막'
+            };
+
+            state.channels.unshift(newCh);
+            closeModal('channel-modal');
+            renderHomeChannels();
+            enterChannel(randomCode, mode);
+            showToast(`🎉 무료 채널 [${randomCode}]이 개설되었습니다!`, 'success');
+        };
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            const colors = {
+                info: 'bg-navy-800 border-cyan-500/50 text-cyan-200',
+                success: 'bg-navy-800 border-emerald-500/50 text-emerald-200',
+                error: 'bg-red-950/90 border-red-500 text-red-200'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `px-3.5 py-2.5 rounded-xl border shadow-xl text-xs font-semibold backdrop-blur-md transition-all duration-300 ${colors[type] || colors.info}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-8px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 2800);
+        }
+
+        // 앱 초기 구동
+        window.addEventListener('DOMContentLoaded', () => {
+            renderHomeChannels();
+            updateMiniPlayer();
+            initFirebase();
+        });
+    </script>
+</body>
+</html>
