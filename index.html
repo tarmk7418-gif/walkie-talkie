@@ -661,10 +661,10 @@
     <div class="modal">
       <h3>🌐 실시간 서버(Supabase) 설정</h3>
       <p style="font-size:0.8rem; color:var(--muted); line-height:1.45;">
-        접속이 안 될 경우 Supabase <strong>API Keys → View legacy API keys</strong>에서 복사한 <code>anon</code> 키(<code>eyJh...</code>)를 아래 두 번째 칸에 붙여넣으세요.
+        정확한 프로젝트 주소와 Legacy anon 키가 기본 내장되어 있습니다.
       </p>
       <input id="sbUrlInput" type="text" placeholder="Project URL" />
-      <input id="sbKeyInput" type="text" placeholder="anon public key (eyJh...) 또는 Publishable key" />
+      <input id="sbKeyInput" type="text" placeholder="anon public key (eyJh...)" />
       <div class="modal-actions">
         <button class="icon-btn" onclick="resetServerConfig()">기본값 복원</button>
         <button class="icon-btn" onclick="closeModal('serverModal')">닫기</button>
@@ -693,10 +693,10 @@
 
   <script>
     // =========================================================================
-    // Supabase 실시간 서버 인증 정보
+    // 정확한 Supabase Project URL 및 Legacy anon 키 (자동 연결 완료)
     // =========================================================================
-    const DEFAULT_SUPABASE_URL = "https://xhnncyvsifrahqechpxe.supabase.co";
-    const DEFAULT_SUPABASE_KEY = "sb_publishable_FsIznJiTUdHu1tY3cqWltw_sXmOmWda";
+    const DEFAULT_SUPABASE_URL = "https://xhnncyvxlfrahqechpxe.supabase.co";
+    const DEFAULT_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhobm5jeXZ4bGZyYWhxZWNocHhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU2MzAxMTgsImV4cCI6MjExMTIwNjExOH0.KRNqcgNTO6yyTm6zlUcHxf05qWVm1s0rK7Fb57d7a2Q";
 
     // 1. Dynamic PWA Manifest
     (function setupPwaManifest() {
@@ -715,7 +715,7 @@
       document.getElementById("pwa-manifest").setAttribute("href", URL.createObjectURL(blob));
     })();
 
-    // 2. Unique Session Identity (Fixes same-device/multi-tab collision)
+    // 2. Unique Session Identity
     const deviceUid = localStorage.getItem("vox_uid") || ("d_" + Math.random().toString(36).slice(2, 8));
     localStorage.setItem("vox_uid", deviceUid);
     const tabUid = sessionStorage.getItem("vox_tab_uid") || ("t_" + Math.random().toString(36).slice(2, 8));
@@ -725,8 +725,20 @@
     let myNickname = localStorage.getItem("vox_nick") || ("대원-" + Math.floor(100 + Math.random() * 900));
     document.getElementById("myNicknameDisplay").textContent = myNickname;
 
-    let sbUrl = localStorage.getItem("vox_sb_url") || DEFAULT_SUPABASE_URL;
-    let sbKey = localStorage.getItem("vox_sb_key") || DEFAULT_SUPABASE_KEY;
+    // Auto-clear outdated URL or publishable key from previous sessions
+    let savedUrl = localStorage.getItem("vox_sb_url");
+    let savedKey = localStorage.getItem("vox_sb_key");
+    if (savedUrl && savedUrl.includes("xhnncyvsifrahqechpxe")) {
+      localStorage.removeItem("vox_sb_url");
+      savedUrl = null;
+    }
+    if (savedKey && savedKey.startsWith("sb_publishable_")) {
+      localStorage.removeItem("vox_sb_key");
+      savedKey = null;
+    }
+
+    let sbUrl = savedUrl || DEFAULT_SUPABASE_URL;
+    let sbKey = savedKey || DEFAULT_SUPABASE_KEY;
     let supabaseClient = null;
     let realtimeRoom = null;
 
@@ -773,6 +785,9 @@
       document.getElementById("sbUrlInput").value = sbUrl;
       document.getElementById("sbKeyInput").value = sbKey;
       initSupabase();
+      if (activeChannel) {
+        reconnectCurrentChannel();
+      }
     }
 
     function changeNickname() {
@@ -838,7 +853,6 @@
       }
     }
 
-    // Re-acquire Wake Lock automatically when returning to the app
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible" && activeChannel && wakeLockEnabled) {
         requestWakeLock();
@@ -967,7 +981,7 @@
       document.getElementById("mainPttBtn").classList.toggle("driving-size", mode === "drive");
     }
 
-    // 5. Supabase Realtime Channel with Explicit Diagnostics
+    // 5. Supabase Realtime Channel
     function connectRealtimeChannel(code) {
       const statusEl = document.getElementById("onlineUsersText");
       if (!supabaseClient) {
@@ -1057,7 +1071,7 @@
             onlineAt: Date.now()
           });
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-          statusEl.textContent = `🔴 연결 실패(${status}) · ⚙️에서 anon키 입력`;
+          statusEl.textContent = `🔴 연결 실패(${status}) · 잠시 후 재시도`;
         }
       });
     }
@@ -1205,7 +1219,7 @@
 
     async function startTransmit() {
       if (isTransmitting || remoteSpeaker) return;
-      requestWakeLock(); // Ensure Wake Lock activates on user gesture if previously pending
+      requestWakeLock();
       isTransmitting = true;
       liveTranscript = "";
       audioChunks = [];
@@ -1347,6 +1361,9 @@
         return;
       }
       ensureAudioCtx();
+      if (audioCtx.state === "suspended") {
+        await audioCtx.resume();
+      }
       duckBgm(true);
       const volSlider = document.getElementById("rxVolumeSlider");
       const vol = volSlider ? Number(volSlider.value) / 100 : 1;
