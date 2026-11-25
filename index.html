@@ -242,7 +242,7 @@
       gap: 6px;
     }
 
-    .wake-badge {
+    .mini-chip {
       font-size: 0.7rem;
       padding: 3px 7px;
       border-radius: 6px;
@@ -253,9 +253,14 @@
       cursor: pointer;
     }
 
-    .wake-badge.active {
+    .mini-chip.active {
       background: rgba(16, 185, 129, 0.18);
       color: var(--green);
+    }
+
+    .mini-chip.reconn {
+      background: rgba(56, 189, 248, 0.16);
+      color: var(--accent);
     }
 
     .mode-tabs {
@@ -579,9 +584,10 @@
     <section id="roomView" class="view">
       <div class="presence-strip">
         <span id="onlineUsersText" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">🟡 실시간 서버 접속 중...</span>
-        <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-          <span id="wakeLockBadge" class="wake-badge" onclick="toggleWakeLockManual()">☀️ 화면유지 대기</span>
-          <span id="roomCodeBadge" style="color:var(--accent); font-weight:800;">CODE: 482910</span>
+        <div style="display:flex; align-items:center; gap:5px; flex-shrink:0;">
+          <span class="mini-chip reconn" onclick="manualReconnect()" title="즉시 재연결">🔄 재연결</span>
+          <span id="wakeLockBadge" class="mini-chip" onclick="toggleWakeLockManual()">☀️ 화면유지</span>
+          <span id="roomCodeBadge" style="color:var(--accent); font-weight:800;">#482910</span>
         </div>
       </div>
 
@@ -629,7 +635,7 @@
 
       <div class="section-label">
         <span>실시간 무전 로그 & 자막 (STT)</span>
-        <span style="color:var(--muted);">수신 시 자동 재생</span>
+        <span style="color:var(--muted);">자동 재연결 활성</span>
       </div>
       <div id="logList" class="log-list"></div>
     </section>
@@ -693,7 +699,7 @@
 
   <script>
     // =========================================================================
-    // 정확한 Supabase Project URL 및 Legacy anon 키 (자동 연결 완료)
+    // 정확한 Supabase Project URL 및 Legacy anon 키
     // =========================================================================
     const DEFAULT_SUPABASE_URL = "https://xhnncyvxlfrahqechpxe.supabase.co";
     const DEFAULT_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhobm5jeXZ4bGZyYWhxZWNocHhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU2MzAxMTgsImV4cCI6MjExMTIwNjExOH0.KRNqcgNTO6yyTm6zlUcHxf05qWVm1s0rK7Fb57d7a2Q";
@@ -725,7 +731,6 @@
     let myNickname = localStorage.getItem("vox_nick") || ("대원-" + Math.floor(100 + Math.random() * 900));
     document.getElementById("myNicknameDisplay").textContent = myNickname;
 
-    // Auto-clear outdated URL or publishable key from previous sessions
     let savedUrl = localStorage.getItem("vox_sb_url");
     let savedKey = localStorage.getItem("vox_sb_key");
     if (savedUrl && savedUrl.includes("xhnncyvsifrahqechpxe")) {
@@ -742,21 +747,29 @@
     let supabaseClient = null;
     let realtimeRoom = null;
 
+    // Auto-Reconnect State
+    let reconnectTimer = null;
+    let reconnectAttempt = 0;
+    let isReconnecting = false;
+
     function initSupabase() {
       const dot = document.getElementById("connDot");
       const banner = document.getElementById("serverStatusBanner");
       if (sbUrl && sbKey && window.supabase) {
         try {
           supabaseClient = window.supabase.createClient(sbUrl.trim(), sbKey.trim(), {
-            realtime: { params: { eventsPerSecond: 10 } }
+            realtime: {
+              params: { eventsPerSecond: 10 },
+              timeout: 15000
+            }
           });
           dot.classList.add("online");
           banner.style.color = "var(--green)";
-          banner.textContent = "🟢 실시간 클라이언트 준비됨 — 채널 입장 시 자동 동기화됩니다.";
+          banner.textContent = "🟢 실시간 서버 준비됨 — 끊김 시 자동 재연결이 작동합니다.";
         } catch (e) {
           dot.classList.remove("online");
           banner.style.color = "var(--red)";
-          banner.textContent = "⚠️ Supabase 초기화 오류: URL과 키를 다시 확인해 주세요.";
+          banner.textContent = "⚠️ Supabase 초기화 오류: URL과 키를 확인해 주세요.";
         }
       } else {
         dot.classList.remove("online");
@@ -773,7 +786,7 @@
       closeModal("serverModal");
       initSupabase();
       if (activeChannel) {
-        reconnectCurrentChannel();
+        manualReconnect();
       }
     }
 
@@ -786,7 +799,7 @@
       document.getElementById("sbKeyInput").value = sbKey;
       initSupabase();
       if (activeChannel) {
-        reconnectCurrentChannel();
+        manualReconnect();
       }
     }
 
@@ -824,7 +837,7 @@
           }
         });
       } catch (err) {
-        badge.textContent = "☀️ 터치 시 화면유지";
+        badge.textContent = "☀️ 화면유지 대기";
         badge.classList.remove("active");
       }
     }
@@ -838,7 +851,7 @@
       }
       const badge = document.getElementById("wakeLockBadge");
       if (badge) {
-        badge.textContent = "☀️ 화면유지 대기";
+        badge.textContent = "☀️ 화면유지";
         badge.classList.remove("active");
       }
     }
@@ -853,9 +866,27 @@
       }
     }
 
+    // Auto-restore Wake Lock & Realtime connection on screen wake or network recovery
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible" && activeChannel && wakeLockEnabled) {
-        requestWakeLock();
+      if (document.visibilityState === "visible" && activeChannel) {
+        if (wakeLockEnabled) requestWakeLock();
+        if (!realtimeRoom || realtimeRoom.state !== "joined") {
+          scheduleAutoReconnect(300);
+        }
+      }
+    });
+
+    window.addEventListener("online", () => {
+      if (activeChannel) {
+        document.getElementById("onlineUsersText").textContent = "🟡 네트워크 복구됨 · 재연결 중...";
+        scheduleAutoReconnect(500);
+      }
+    });
+
+    window.addEventListener("offline", () => {
+      if (activeChannel) {
+        document.getElementById("onlineUsersText").textContent = "🔴 인터넷 끊김 · 복구 시 자동 재연결";
+        document.getElementById("connDot").classList.remove("online");
       }
     });
 
@@ -924,6 +955,10 @@
 
     function enterRoom(ch) {
       ensureAudioCtx();
+      clearTimeout(reconnectTimer);
+      reconnectAttempt = 0;
+      isReconnecting = false;
+
       activeChannel = ch;
       logs = [];
       onlinePeers = [];
@@ -934,7 +969,7 @@
       document.getElementById("pttDeck").style.display = "flex";
       document.getElementById("backHomeBtn").style.display = "inline-block";
       document.getElementById("headerText").textContent = ch.name;
-      document.getElementById("roomCodeBadge").textContent = `CODE: ${ch.code}`;
+      document.getElementById("roomCodeBadge").textContent = `#${ch.code}`;
 
       switchMode(ch.type);
       renderLogs();
@@ -943,21 +978,53 @@
       requestWakeLock();
     }
 
-    async function reconnectCurrentChannel() {
+    function scheduleAutoReconnect(customDelayMs) {
+      if (!activeChannel || isReconnecting) return;
+      clearTimeout(reconnectTimer);
+      reconnectAttempt += 1;
+      const delay = customDelayMs !== undefined
+        ? customDelayMs
+        : Math.min(10000, 2000 * reconnectAttempt);
+
+      const statusEl = document.getElementById("onlineUsersText");
+      statusEl.textContent = `🟠 끊김 감지 · ${(delay / 1000).toFixed(0)}초 후 자동 재연결 (${reconnectAttempt}회차)`;
+
+      reconnectTimer = setTimeout(async () => {
+        if (!activeChannel) return;
+        isReconnecting = true;
+        await cleanupRealtimeRoom();
+        isReconnecting = false;
+        connectRealtimeChannel(activeChannel.code);
+      }, delay);
+    }
+
+    async function manualReconnect() {
       if (!activeChannel) return;
-      if (realtimeRoom && supabaseClient) {
-        await supabaseClient.removeChannel(realtimeRoom);
-        realtimeRoom = null;
-      }
+      clearTimeout(reconnectTimer);
+      reconnectAttempt = 0;
+      isReconnecting = false;
+      document.getElementById("onlineUsersText").textContent = "🟡 수동 재연결 중...";
+      await cleanupRealtimeRoom();
       connectRealtimeChannel(activeChannel.code);
     }
 
-    async function goHome() {
-      if (isTransmitting) stopTransmit();
+    async function cleanupRealtimeRoom() {
       if (realtimeRoom && supabaseClient) {
-        await supabaseClient.removeChannel(realtimeRoom);
+        try {
+          await supabaseClient.removeChannel(realtimeRoom);
+        } catch (e) {}
         realtimeRoom = null;
       }
+    }
+
+    async function goHome() {
+      clearTimeout(reconnectTimer);
+      reconnectAttempt = 0;
+      isReconnecting = false;
+
+      if (isTransmitting) stopTransmit();
+      await cleanupRealtimeRoom();
+
       if (gpsWatchId !== null && navigator.geolocation) {
         navigator.geolocation.clearWatch(gpsWatchId);
         gpsWatchId = null;
@@ -981,25 +1048,31 @@
       document.getElementById("mainPttBtn").classList.toggle("driving-size", mode === "drive");
     }
 
-    // 5. Supabase Realtime Channel
+    // 5. Supabase Realtime Channel with Auto-Reconnect
     function connectRealtimeChannel(code) {
       const statusEl = document.getElementById("onlineUsersText");
+      const dot = document.getElementById("connDot");
+
       if (!supabaseClient) {
         statusEl.textContent = `🟡 로컬 모드: ${myNickname} (1명)`;
         return;
       }
 
-      statusEl.textContent = "🟡 실시간 서버 접속 중...";
+      statusEl.textContent = reconnectAttempt > 0
+        ? `🟡 자동 재연결 시도 중 (${reconnectAttempt}회)...`
+        : "🟡 실시간 서버 접속 중...";
 
-      realtimeRoom = supabaseClient.channel(`vox-room-${code}`, {
+      const channelInstance = supabaseClient.channel(`vox-room-${code}`, {
         config: {
           broadcast: { self: false },
           presence: { key: myUserId }
         }
       });
+      realtimeRoom = channelInstance;
 
-      realtimeRoom.on("presence", { event: "sync" }, () => {
-        const state = realtimeRoom.presenceState();
+      channelInstance.on("presence", { event: "sync" }, () => {
+        if (realtimeRoom !== channelInstance) return;
+        const state = channelInstance.presenceState();
         const peers = [];
         Object.keys(state).forEach(uid => {
           const entries = state[uid];
@@ -1012,7 +1085,8 @@
         statusEl.textContent = `🟢 접속 ${peers.length}명 (${names})`;
       });
 
-      realtimeRoom.on("broadcast", { event: "floor" }, ({ payload }) => {
+      channelInstance.on("broadcast", { event: "floor" }, ({ payload }) => {
+        if (realtimeRoom !== channelInstance) return;
         if (payload.state === "speaking") {
           remoteSpeaker = payload.nickname;
           updateFloorUi();
@@ -1028,7 +1102,8 @@
         }
       });
 
-      realtimeRoom.on("broadcast", { event: "voice" }, ({ payload }) => {
+      channelInstance.on("broadcast", { event: "voice" }, ({ payload }) => {
+        if (realtimeRoom !== channelInstance) return;
         remoteSpeaker = null;
         updateFloorUi();
 
@@ -1057,21 +1132,31 @@
         }
       });
 
-      realtimeRoom.on("broadcast", { event: "sfx" }, ({ payload }) => {
+      channelInstance.on("broadcast", { event: "sfx" }, ({ payload }) => {
+        if (realtimeRoom !== channelInstance) return;
         playSfx(payload.kind);
       });
 
-      realtimeRoom.subscribe(async (status) => {
+      channelInstance.subscribe(async (status) => {
+        // Ignore callbacks from old discarded channel instances
+        if (realtimeRoom !== channelInstance || !activeChannel) return;
+
         if (status === "SUBSCRIBED") {
+          clearTimeout(reconnectTimer);
+          reconnectAttempt = 0;
+          dot.classList.add("online");
           statusEl.textContent = `🟢 접속 1명 (${myNickname})`;
-          await realtimeRoom.track({
+          await channelInstance.track({
             userId: myUserId,
             nickname: myNickname,
             gps: myGps,
             onlineAt: Date.now()
           });
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-          statusEl.textContent = `🔴 연결 실패(${status}) · 잠시 후 재시도`;
+          dot.classList.remove("online");
+          remoteSpeaker = null;
+          updateFloorUi();
+          scheduleAutoReconnect();
         }
       });
     }
@@ -1161,7 +1246,7 @@
 
     function sendSfxBroadcast(kind) {
       playSfx(kind);
-      if (realtimeRoom) {
+      if (realtimeRoom && realtimeRoom.state === "joined") {
         realtimeRoom.send({ type: "broadcast", event: "sfx", payload: { kind } });
       }
     }
@@ -1228,7 +1313,7 @@
       playStartChirp();
       duckBgm(true);
 
-      if (realtimeRoom) {
+      if (realtimeRoom && realtimeRoom.state === "joined") {
         realtimeRoom.send({
           type: "broadcast",
           event: "floor",
@@ -1290,7 +1375,7 @@
       playRogerBeep();
       duckBgm(false);
 
-      if (realtimeRoom) {
+      if (realtimeRoom && realtimeRoom.state === "joined") {
         realtimeRoom.send({
           type: "broadcast",
           event: "floor",
@@ -1338,7 +1423,7 @@
       });
       renderLogs();
 
-      if (realtimeRoom) {
+      if (realtimeRoom && realtimeRoom.state === "joined") {
         const safeAudio = audioDataUrl && audioDataUrl.length < 245000 ? audioDataUrl : null;
         await realtimeRoom.send({
           type: "broadcast",
@@ -1429,7 +1514,7 @@
       });
       renderLogs();
 
-      if (realtimeRoom) {
+      if (realtimeRoom && realtimeRoom.state === "joined") {
         await realtimeRoom.send({
           type: "broadcast",
           event: "voice",
@@ -1476,7 +1561,7 @@
           myGps = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           document.getElementById("gpsStatusText").textContent =
             `📍 내 GPS 활성 (${myGps.lat.toFixed(3)}, ${myGps.lng.toFixed(3)})`;
-          if (realtimeRoom) {
+          if (realtimeRoom && realtimeRoom.state === "joined") {
             await realtimeRoom.track({
               userId: myUserId,
               nickname: myNickname,
