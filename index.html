@@ -7,8 +7,10 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="VOX-ONE" />
-  <title>VOX-ONE | 올인원 스마트 무전기</title>
+  <title>VOX-ONE | 실시간 스마트 무전기</title>
   <link id="pwa-manifest" rel="manifest" />
+  <!-- Supabase Realtime SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
       --bg: #0b1120;
@@ -52,39 +54,48 @@
       position: relative;
     }
 
-    /* Header */
     header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 14px 16px;
+      padding: 12px 14px;
       background: var(--panel);
       border-bottom: 1px solid var(--border);
       position: sticky;
       top: 0;
       z-index: 20;
+      gap: 8px;
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 7px;
       font-weight: 800;
-      font-size: 1.05rem;
-      letter-spacing: 0.5px;
+      font-size: 0.98rem;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
     }
 
     .status-dot {
       width: 9px;
       height: 9px;
+      min-width: 9px;
       border-radius: 50%;
+      background: var(--amber);
+      box-shadow: 0 0 8px var(--amber);
+    }
+
+    .status-dot.online {
       background: var(--green);
       box-shadow: 0 0 8px var(--green);
     }
 
     .header-actions {
       display: flex;
-      gap: 8px;
+      gap: 6px;
+      flex-shrink: 0;
     }
 
     button {
@@ -103,32 +114,65 @@
     }
 
     .icon-btn {
-      padding: 7px 11px;
-      font-size: 0.85rem;
+      padding: 6px 10px;
+      font-size: 0.8rem;
       font-weight: 600;
       border: 1px solid var(--border);
     }
 
-    /* Views */
     .view {
       display: none;
       flex: 1;
       flex-direction: column;
-      padding: 16px;
-      gap: 14px;
+      padding: 14px;
+      gap: 12px;
     }
 
     .view.active {
       display: flex;
     }
 
-    /* Home View */
+    /* Profile & Join Bar */
+    .profile-bar {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 0.84rem;
+    }
+
+    .join-box {
+      display: flex;
+      gap: 8px;
+    }
+
+    .join-box input {
+      flex: 1;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-size: 0.9rem;
+      letter-spacing: 1px;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #082f49;
+      font-weight: 800;
+      padding: 9px 14px;
+    }
+
     .section-label {
-      font-size: 0.78rem;
+      font-size: 0.76rem;
       font-weight: 700;
       color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
+      letter-spacing: 0.4px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -138,21 +182,21 @@
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 14px;
-      padding: 14px;
+      padding: 13px 14px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
+      cursor: pointer;
     }
 
-    .channel-info {
-      flex: 1;
-      cursor: pointer;
+    .channel-card:hover {
+      border-color: var(--accent);
     }
 
     .channel-title {
       font-weight: 700;
-      font-size: 1rem;
+      font-size: 0.98rem;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -172,44 +216,32 @@
     .badge.work { background: rgba(245, 158, 11, 0.15); color: var(--amber); }
 
     .channel-meta {
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       color: var(--muted);
     }
 
-    .quick-ptt {
-      background: linear-gradient(145deg, #1e293b, #0f172a);
-      border: 1px solid var(--accent);
+    .enter-pill {
+      background: rgba(56, 189, 248, 0.14);
       color: var(--accent);
-      padding: 10px 14px;
-      border-radius: 12px;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 0.8rem;
       font-weight: 700;
-      font-size: 0.82rem;
-      user-select: none;
-      -webkit-touch-callout: none;
-      touch-action: manipulation;
-    }
-
-    .quick-ptt.transmitting {
-      background: var(--red);
-      border-color: var(--red);
-      color: #fff;
-      box-shadow: 0 0 16px rgba(239, 68, 68, 0.5);
-    }
-
-    .missed-bar {
-      margin-top: auto;
-      background: var(--panel-light);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px 14px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      font-size: 0.85rem;
     }
 
     /* Room View */
+    .presence-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 0.78rem;
+    }
+
     .mode-tabs {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -221,7 +253,7 @@
 
     .mode-tab {
       padding: 8px 4px;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       font-weight: 700;
       background: transparent;
       color: var(--muted);
@@ -231,7 +263,6 @@
     .mode-tab.active {
       background: var(--panel-light);
       color: var(--text);
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
     }
 
     .canvas-box {
@@ -246,7 +277,7 @@
 
     canvas {
       width: 100%;
-      height: 76px;
+      height: 68px;
       background: #080d1a;
       border-radius: 10px;
       display: block;
@@ -255,14 +286,13 @@
     .mode-panel {
       display: none;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
     }
 
     .mode-panel.active {
       display: flex;
     }
 
-    /* Soundboard */
     .sfx-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -271,33 +301,31 @@
 
     .sfx-btn {
       padding: 8px 4px;
-      font-size: 0.78rem;
+      font-size: 0.76rem;
       font-weight: 600;
       border: 1px solid var(--border);
     }
 
-    /* Radar / Driving */
     #radarCanvas {
-      height: 150px;
+      height: 140px;
     }
 
     .drive-controls {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       background: #0b1120;
-      padding: 8px 12px;
+      padding: 8px 10px;
       border-radius: 10px;
     }
 
-    /* Business Mixer */
     .mixer-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      font-size: 0.82rem;
+      font-size: 0.8rem;
     }
 
     .mixer-row input[type="range"] {
@@ -305,16 +333,14 @@
       accent-color: var(--amber);
     }
 
-    /* Logs */
     .log-list {
       flex: 1;
-      min-height: 140px;
+      min-height: 130px;
       max-height: 230px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
       gap: 8px;
-      padding-right: 4px;
     }
 
     .log-item {
@@ -322,7 +348,7 @@
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 10px 12px;
-      font-size: 0.85rem;
+      font-size: 0.84rem;
       display: flex;
       flex-direction: column;
       gap: 4px;
@@ -330,14 +356,14 @@
 
     .log-item.sos {
       border-color: var(--red);
-      background: rgba(239, 68, 68, 0.12);
+      background: rgba(239, 68, 68, 0.14);
     }
 
     .log-top {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.75rem;
+      font-size: 0.74rem;
       color: var(--muted);
     }
 
@@ -346,7 +372,7 @@
       color: var(--accent);
       padding: 3px 8px;
       border-radius: 6px;
-      font-size: 0.74rem;
+      font-size: 0.73rem;
       font-weight: 700;
     }
 
@@ -355,17 +381,17 @@
       margin-top: auto;
       background: var(--panel);
       border-top: 1px solid var(--border);
-      padding: 14px 16px 20px;
+      padding: 12px 14px 18px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
 
     .floor-status {
       font-size: 0.82rem;
       font-weight: 700;
-      padding: 5px 12px;
+      padding: 5px 14px;
       border-radius: 999px;
       background: #0b1120;
       border: 1px solid var(--border);
@@ -382,13 +408,13 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 10px;
     }
 
     .side-action {
-      width: 74px;
+      width: 72px;
       height: 64px;
-      font-size: 0.76rem;
+      font-size: 0.75rem;
       font-weight: 700;
       display: flex;
       flex-direction: column;
@@ -405,7 +431,7 @@
 
     .ptt-main {
       flex: 1;
-      height: 86px;
+      height: 84px;
       border-radius: 22px;
       background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
       border: 2px solid var(--accent);
@@ -415,7 +441,7 @@
       align-items: center;
       justify-content: center;
       gap: 4px;
-      font-size: 1.05rem;
+      font-size: 1.02rem;
       font-weight: 800;
       user-select: none;
       -webkit-touch-callout: none;
@@ -423,8 +449,8 @@
     }
 
     .ptt-main.driving-size {
-      height: 128px;
-      font-size: 1.25rem;
+      height: 124px;
+      font-size: 1.2rem;
       border-width: 3px;
     }
 
@@ -435,25 +461,27 @@
       transform: scale(0.98);
     }
 
+    .ptt-main.locked {
+      opacity: 0.5;
+      border-color: var(--muted);
+      box-shadow: none;
+    }
+
     .ptt-sub {
-      font-size: 0.74rem;
+      font-size: 0.73rem;
       font-weight: 500;
       color: var(--muted);
     }
 
-    .ptt-main.active .ptt-sub {
-      color: #fee2e2;
-    }
-
-    /* Modal */
+    /* Modals */
     .modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.72);
+      background: rgba(0, 0, 0, 0.75);
       display: none;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: 18px;
       z-index: 50;
     }
 
@@ -473,10 +501,6 @@
       gap: 12px;
     }
 
-    .modal h3 {
-      font-size: 1.05rem;
-    }
-
     .modal input, .modal select {
       width: 100%;
       padding: 10px 12px;
@@ -484,7 +508,7 @@
       border: 1px solid var(--border);
       background: #0b1120;
       color: var(--text);
-      font-size: 0.9rem;
+      font-size: 0.88rem;
     }
 
     .modal-actions {
@@ -493,49 +517,55 @@
       gap: 8px;
       margin-top: 4px;
     }
-
-    .btn-primary {
-      background: var(--accent);
-      color: #082f49;
-      font-weight: 800;
-      padding: 9px 14px;
-    }
   </style>
 </head>
 <body>
   <div class="app-shell">
     <header>
       <div class="brand" id="headerTitle">
-        <span class="status-dot"></span>
-        <span>VOX-ONE</span>
+        <span class="status-dot" id="connDot"></span>
+        <span id="headerText">VOX-ONE</span>
       </div>
       <div class="header-actions">
-        <button class="icon-btn" id="backHomeBtn" style="display:none;" onclick="goHome()">← 홈</button>
-        <button class="icon-btn" onclick="simulateIncoming()">📥 수신테스트</button>
-        <button class="icon-btn" onclick="openModal('guideModal')">💡 설치법</button>
+        <button class="icon-btn" id="backHomeBtn" style="display:none;" onclick="goHome()">← 나가기</button>
+        <button class="icon-btn" onclick="openModal('serverModal')">⚙️ 서버연결</button>
       </div>
     </header>
 
     <!-- HOME VIEW -->
     <main id="homeView" class="view active">
+      <div class="profile-bar">
+        <div>
+          <span style="color:var(--muted);">내 콜사인:</span>
+          <strong id="myNicknameDisplay" style="color:var(--accent);">대원-101</strong>
+        </div>
+        <button class="icon-btn" onclick="changeNickname()">닉네임 변경</button>
+      </div>
+
+      <div class="join-box">
+        <input id="joinCodeInput" type="text" maxlength="8" placeholder="채널 코드 입력 (예: 482910)" />
+        <button class="btn-primary" onclick="joinByCode()">코드 입장</button>
+      </div>
+
       <div class="section-label">
-        <span>즐겨찾기 채널 (원터치 퀵 무전)</span>
-        <button class="icon-btn" onclick="openModal('createModal')">+ 채널 생성</button>
+        <span>기본 채널 (같은 코드로 동시 접속)</span>
+        <button class="icon-btn" onclick="openModal('createModal')">+ 채널 만들기</button>
       </div>
 
       <div id="channelList" style="display:flex; flex-direction:column; gap:10px;"></div>
 
-      <div class="missed-bar">
-        <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-          <strong style="color:var(--accent);">놓친 무전:</strong>
-          <span id="lastMissedText">"3분 뒤 휴게소 진입합니다."</span>
-        </div>
-        <button class="play-chip" onclick="replayLast()">▶ 재생</button>
+      <div style="margin-top:auto; font-size:0.78rem; color:var(--muted); background:var(--panel); padding:11px 12px; border-radius:12px; border:1px solid var(--border); line-height:1.45;">
+        📡 <strong id="serverStatusBanner" style="color:var(--amber);">로컬 단독 모드 (상단 ⚙️ 서버연결에 Supabase 키 입력 시 실시간 다중 무전 활성화)</strong>
       </div>
     </main>
 
     <!-- ROOM VIEW -->
     <section id="roomView" class="view">
+      <div class="presence-strip">
+        <span id="onlineUsersText">🟢 접속 중: 나 (1명)</span>
+        <span id="roomCodeBadge" style="color:var(--accent); font-weight:800;">CODE: 482910</span>
+      </div>
+
       <div class="mode-tabs">
         <button class="mode-tab active" data-mode="social" onclick="switchMode('social')">💬 일상 모드</button>
         <button class="mode-tab" data-mode="drive" onclick="switchMode('drive')">🚗 주행 모드</button>
@@ -543,48 +573,44 @@
       </div>
 
       <div class="canvas-box">
-        <canvas id="waveCanvas" width="420" height="76"></canvas>
+        <canvas id="waveCanvas" width="420" height="68"></canvas>
 
-        <!-- Social Mode Sub-panel -->
+        <!-- Social Mode -->
         <div id="panel-social" class="mode-panel active">
-          <div class="section-label"><span>무전 효과음 패드 (송출)</span></div>
+          <div class="section-label"><span>무전 효과음 패드 (채널 전체 송출)</span></div>
           <div class="sfx-grid">
-            <button class="sfx-btn" onclick="playSfx('beep')">📡 호출음</button>
-            <button class="sfx-btn" onclick="playSfx('roger')">📻 로저톤</button>
-            <button class="sfx-btn" onclick="playSfx('alert')">⚠️ 주의알림</button>
-            <button class="sfx-btn" onclick="playSfx('ok')">✅ 수신완료</button>
+            <button class="sfx-btn" onclick="sendSfxBroadcast('beep')">📡 호출음</button>
+            <button class="sfx-btn" onclick="sendSfxBroadcast('roger')">📻 로저톤</button>
+            <button class="sfx-btn" onclick="sendSfxBroadcast('alert')">⚠️ 주의알림</button>
+            <button class="sfx-btn" onclick="sendSfxBroadcast('ok')">✅ 수신완료</button>
           </div>
         </div>
 
-        <!-- Driving Mode Sub-panel -->
+        <!-- Driving Mode -->
         <div id="panel-drive" class="mode-panel">
-          <canvas id="radarCanvas" width="420" height="150"></canvas>
+          <canvas id="radarCanvas" width="420" height="140"></canvas>
           <div class="drive-controls">
-            <span>🎵 주행 BGM 오디오 덕킹</span>
-            <button class="icon-btn" id="bgmBtn" onclick="toggleBgm()">BGM 켜기</button>
+            <span id="gpsStatusText">📍 GPS 위치 공유 대기 중</span>
+            <button class="icon-btn" id="bgmBtn" onclick="toggleBgm()">주행 BGM 덕킹</button>
           </div>
         </div>
 
-        <!-- Business Mode Sub-panel -->
+        <!-- Business Mode -->
         <div id="panel-work" class="mode-panel">
           <div class="section-label">
-            <span>다중 채널 동시 청취 믹서</span>
-            <button class="play-chip" onclick="exportLogsCsv()">CSV 내보내기</button>
+            <span>다중 채널 수신 볼륨 믹서</span>
+            <button class="play-chip" onclick="exportLogsCsv()">기록 CSV 저장</button>
           </div>
           <div class="mixer-row">
-            <span>CH.1 전체공지</span>
-            <input type="range" min="0" max="100" value="100" />
-          </div>
-          <div class="mixer-row">
-            <span>CH.2 현장팀</span>
-            <input type="range" min="0" max="100" value="75" />
+            <span>메인 무전 수신음</span>
+            <input id="rxVolumeSlider" type="range" min="0" max="100" value="100" />
           </div>
         </div>
       </div>
 
       <div class="section-label">
         <span>실시간 무전 로그 & 자막 (STT)</span>
-        <span id="roomCodeBadge" style="color:var(--accent);">CODE: 482910</span>
+        <span style="color:var(--muted);">수신 시 자동 재생</span>
       </div>
       <div id="logList" class="log-list"></div>
     </section>
@@ -600,7 +626,7 @@
 
         <button id="mainPttBtn" class="ptt-main">
           <span>🎙️ 꾹 눌러서 말하기</span>
-          <span class="ptt-sub">또는 스페이스바 길게 누르기</span>
+          <span class="ptt-sub">누르는 동안 녹음 · 떼면 즉시 전송</span>
         </button>
 
         <button class="side-action sos-btn" onclick="triggerSos()">
@@ -611,11 +637,28 @@
     </div>
   </div>
 
+  <!-- Server Config Modal -->
+  <div id="serverModal" class="modal-backdrop">
+    <div class="modal">
+      <h3>🌐 무료 실시간 서버(Supabase) 연결</h3>
+      <p style="font-size:0.8rem; color:var(--muted); line-height:1.45;">
+        Supabase API Keys 화면에서 복사한 <code>Publishable key</code>(또는 <code>anon</code> 키)를 붙여넣으면 다른 스마트폰과 실시간 음성 무전이 연결됩니다.
+      </p>
+      <input id="sbUrlInput" type="text" placeholder="Project URL (https://xxxx.supabase.co)" />
+      <input id="sbKeyInput" type="text" placeholder="Publishable key (sb_publishable_...)" />
+      <div class="modal-actions">
+        <button class="icon-btn" onclick="closeModal('serverModal')">닫기</button>
+        <button class="btn-primary" onclick="saveServerConfig()">저장 및 연결</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Create Channel Modal -->
   <div id="createModal" class="modal-backdrop">
     <div class="modal">
       <h3>새 무전 채널 만들기</h3>
-      <input id="newChanName" type="text" placeholder="채널 이름 (예: 주말 라이딩 A조)" />
+      <input id="newChanName" type="text" placeholder="채널 이름 (예: 주말 투어링 B조)" />
+      <input id="newChanCode" type="text" maxlength="8" placeholder="공유할 채널 코드 (비워두면 자동생성)" />
       <select id="newChanType">
         <option value="social">일상 · 소셜 채널</option>
         <option value="drive">주행 · 아웃도어 채널</option>
@@ -623,34 +666,26 @@
       </select>
       <div class="modal-actions">
         <button class="icon-btn" onclick="closeModal('createModal')">취소</button>
-        <button class="btn-primary" onclick="createChannel()">생성하기</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Guide Modal -->
-  <div id="guideModal" class="modal-backdrop">
-    <div class="modal">
-      <h3>📱 스마트폰 앱 설치 & 마이크 안내</h3>
-      <p style="font-size:0.84rem; color:var(--muted); line-height:1.5;">
-        1. GitHub Pages(<code>https://</code>) 주소로 접속해야 브라우저가 마이크 권한을 허용합니다.<br/>
-        2. <strong>안드로이드(Chrome):</strong> 우측 상단 <code>⋮</code> → <strong>홈 화면에 추가</strong><br/>
-        3. <strong>아이폰(Safari):</strong> 하단 공유(<code>□↑</code>) → <strong>홈 화면에 추가</strong><br/>
-        4. 마이크가 없는 PC 환경에서도 자동 가상 무전 녹음이 작동합니다.
-      </p>
-      <div class="modal-actions">
-        <button class="btn-primary" onclick="closeModal('guideModal')">확인</button>
+        <button class="btn-primary" onclick="createChannel()">생성 및 입장</button>
       </div>
     </div>
   </div>
 
   <script>
-    // 1. Dynamic PWA Manifest Injection (Single-file GitHub deployment ready)
+    // =========================================================================
+    // 본인의 Supabase URL이 미리 입력되어 있습니다.
+    // 아래 DEFAULT_SUPABASE_KEY 따옴표 안에 Publishable key를 넣거나,
+    // 앱 화면 우측 상단 [⚙️ 서버연결] 버튼에서 붙여넣으시면 바로 작동합니다.
+    // =========================================================================
+    const DEFAULT_SUPABASE_URL = "https://xhnncyvsifrahqechpxe.supabase.co";
+    const DEFAULT_SUPABASE_KEY = "";
+
+    // 1. Dynamic PWA Manifest
     (function setupPwaManifest() {
       const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0f172a"/><circle cx="256" cy="256" r="150" fill="none" stroke="#38bdf8" stroke-width="28"/><circle cx="256" cy="256" r="64" fill="#ef4444"/></svg>`;
       const iconUrl = "data:image/svg+xml;base64," + btoa(svgIcon);
       const manifest = {
-        name: "VOX-ONE 스마트 무전기",
+        name: "VOX-ONE 실시간 무전기",
         short_name: "VOX-ONE",
         start_url: "./",
         display: "standalone",
@@ -662,33 +697,73 @@
       document.getElementById("pwa-manifest").setAttribute("href", URL.createObjectURL(blob));
     })();
 
-    // 2. App State
+    // 2. Identity & Server State
+    const myUserId = localStorage.getItem("vox_uid") || ("u_" + Math.random().toString(36).slice(2, 10));
+    localStorage.setItem("vox_uid", myUserId);
+
+    let myNickname = localStorage.getItem("vox_nick") || ("대원-" + Math.floor(100 + Math.random() * 900));
+    document.getElementById("myNicknameDisplay").textContent = myNickname;
+
+    let sbUrl = localStorage.getItem("vox_sb_url") || DEFAULT_SUPABASE_URL;
+    let sbKey = localStorage.getItem("vox_sb_key") || DEFAULT_SUPABASE_KEY;
+    let supabaseClient = null;
+    let realtimeRoom = null;
+
+    function initSupabase() {
+      const dot = document.getElementById("connDot");
+      const banner = document.getElementById("serverStatusBanner");
+      if (sbUrl && sbKey && window.supabase) {
+        try {
+          supabaseClient = window.supabase.createClient(sbUrl.trim(), sbKey.trim());
+          dot.classList.add("online");
+          banner.style.color = "var(--green)";
+          banner.textContent = "🟢 실시간 서버 연결됨 — 같은 채널 코드로 입장한 상대방과 즉시 음성 무전이 가능합니다.";
+        } catch (e) {
+          dot.classList.remove("online");
+          banner.style.color = "var(--red)";
+          banner.textContent = "⚠️ Supabase 연결 오류: URL과 키를 다시 확인해 주세요.";
+        }
+      } else {
+        dot.classList.remove("online");
+        banner.style.color = "var(--amber)";
+        banner.textContent = "로컬 단독 모드 (상단 ⚙️ 서버연결에 Supabase 키 입력 시 실시간 다중 무전 활성화)";
+      }
+    }
+
+    function saveServerConfig() {
+      sbUrl = document.getElementById("sbUrlInput").value.trim();
+      sbKey = document.getElementById("sbKeyInput").value.trim();
+      localStorage.setItem("vox_sb_url", sbUrl);
+      localStorage.setItem("vox_sb_key", sbKey);
+      closeModal("serverModal");
+      initSupabase();
+    }
+
+    function changeNickname() {
+      const next = prompt("사용할 콜사인(닉네임)을 입력하세요:", myNickname);
+      if (next && next.trim()) {
+        myNickname = next.trim().slice(0, 14);
+        localStorage.setItem("vox_nick", myNickname);
+        document.getElementById("myNicknameDisplay").textContent = myNickname;
+      }
+    }
+
+    // 3. Channels & Room Lifecycle
     const channels = [
-      { id: "c1", name: "주말 투어링 A조", type: "drive", members: 12, code: "482910", last: "방금 전 · 김민수" },
-      { id: "c2", name: "1층 홀/주방 스태프", type: "work", members: 8, code: "910342", last: "2분 전 · 매니저" },
-      { id: "c3", name: "우리 가족 무전기", type: "social", members: 4, code: "112094", last: "14분 전 · 엄마" }
+      { id: "c1", name: "주말 투어링 A조", type: "drive", code: "482910" },
+      { id: "c2", name: "1층 홀/주방 스태프", type: "work", code: "910342" },
+      { id: "c3", name: "우리 가족 무전기", type: "social", code: "112094" }
     ];
 
     let activeChannel = null;
     let currentMode = "social";
-    let isTransmitting = false;
-    let audioCtx = null;
-    let mediaRecorder = null;
-    let audioChunks = [];
-    let analyser = null;
-    let micStream = null;
-    let recognition = null;
-    let liveTranscript = "";
-    let bgmOsc = null;
-    let bgmGain = null;
-    let isBgmOn = false;
+    let onlinePeers = [];
+    let remoteSpeaker = null;
+    let speakerTimeout = null;
+    let logs = [];
+    let myGps = null;
+    let gpsWatchId = null;
 
-    const logs = [
-      { id: 1, sender: "김민수", time: "오전 03:54", text: "3분 뒤 여주휴게소 진입합니다. 우측 차선으로 붙으세요.", audioUrl: null, sos: false },
-      { id: 2, sender: "이영희", time: "오전 03:56", text: "카피했습니다. 후미 차량 2대 정상 주행 중입니다.", audioUrl: null, sos: false }
-    ];
-
-    // 3. Render Home Channels
     function renderChannels() {
       const list = document.getElementById("channelList");
       list.innerHTML = "";
@@ -696,47 +771,82 @@
         const badgeLabel = ch.type === "drive" ? "주행" : ch.type === "work" ? "업무" : "일상";
         const card = document.createElement("div");
         card.className = "channel-card";
+        card.onclick = () => enterRoom(ch);
         card.innerHTML = `
-          <div class="channel-info" onclick="enterRoom('${ch.id}')">
+          <div>
             <div class="channel-title">
               <span>${ch.name}</span>
               <span class="badge ${ch.type}">${badgeLabel}</span>
             </div>
-            <div class="channel-meta">참여 ${ch.members}명 · ${ch.last}</div>
+            <div class="channel-meta">공유 코드: <strong style="color:var(--text);">${ch.code}</strong></div>
           </div>
-          <button class="quick-ptt" data-chid="${ch.id}">🎙️ 즉시무전</button>
+          <span class="enter-pill">무전 입장 →</span>
         `;
-        const qBtn = card.querySelector(".quick-ptt");
-        bindPttEvents(qBtn, () => {
-          activeChannel = ch;
-          startTransmit();
-        }, () => {
-          stopTransmit();
-        });
         list.appendChild(card);
       });
     }
 
-    function enterRoom(id) {
-      activeChannel = channels.find(c => c.id === id);
-      if (!activeChannel) return;
+    function joinByCode() {
+      const raw = document.getElementById("joinCodeInput").value.trim().toUpperCase();
+      if (!raw) return;
+      let found = channels.find(c => c.code === raw);
+      if (!found) {
+        found = { id: "custom_" + raw, name: `무전 채널 #${raw}`, type: "social", code: raw };
+        channels.unshift(found);
+        renderChannels();
+      }
+      document.getElementById("joinCodeInput").value = "";
+      enterRoom(found);
+    }
+
+    function createChannel() {
+      const name = document.getElementById("newChanName").value.trim() || "새 무전 채널";
+      const codeInput = document.getElementById("newChanCode").value.trim().toUpperCase();
+      const code = codeInput || Math.floor(100000 + Math.random() * 900000).toString();
+      const type = document.getElementById("newChanType").value;
+      const ch = { id: "c" + Date.now(), name, type, code };
+      channels.unshift(ch);
+      renderChannels();
+      closeModal("createModal");
+      enterRoom(ch);
+    }
+
+    function enterRoom(ch) {
+      ensureAudioCtx();
+      activeChannel = ch;
+      logs = [];
+      onlinePeers = [];
+      remoteSpeaker = null;
+
       document.getElementById("homeView").classList.remove("active");
       document.getElementById("roomView").classList.add("active");
       document.getElementById("pttDeck").style.display = "flex";
       document.getElementById("backHomeBtn").style.display = "inline-block";
-      document.getElementById("headerTitle").innerHTML = `<span class="status-dot"></span><span>${activeChannel.name}</span>`;
-      document.getElementById("roomCodeBadge").textContent = `CODE: ${activeChannel.code}`;
-      switchMode(activeChannel.type);
+      document.getElementById("headerText").textContent = ch.name;
+      document.getElementById("roomCodeBadge").textContent = `CODE: ${ch.code}`;
+
+      switchMode(ch.type);
       renderLogs();
+      connectRealtimeChannel(ch.code);
+      startGpsTracking();
     }
 
-    function goHome() {
+    async function goHome() {
+      if (isTransmitting) stopTransmit();
+      if (realtimeRoom && supabaseClient) {
+        await supabaseClient.removeChannel(realtimeRoom);
+        realtimeRoom = null;
+      }
+      if (gpsWatchId !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(gpsWatchId);
+        gpsWatchId = null;
+      }
       activeChannel = null;
       document.getElementById("roomView").classList.remove("active");
       document.getElementById("homeView").classList.add("active");
       document.getElementById("pttDeck").style.display = "none";
       document.getElementById("backHomeBtn").style.display = "none";
-      document.getElementById("headerTitle").innerHTML = `<span class="status-dot"></span><span>VOX-ONE</span>`;
+      document.getElementById("headerText").textContent = "VOX-ONE";
     }
 
     function switchMode(mode) {
@@ -746,12 +856,124 @@
       });
       document.querySelectorAll(".mode-panel").forEach(p => p.classList.remove("active"));
       document.getElementById(`panel-${mode}`).classList.add("active");
-
-      const pttBtn = document.getElementById("mainPttBtn");
-      pttBtn.classList.toggle("driving-size", mode === "drive");
+      document.getElementById("mainPttBtn").classList.toggle("driving-size", mode === "drive");
     }
 
-    // 4. Web Audio Synthesizer (Start Chirp, Roger Beep, Radio Bandpass Filter, BGM Ducking)
+    // 4. Supabase Realtime Channel
+    function connectRealtimeChannel(code) {
+      if (!supabaseClient) {
+        document.getElementById("onlineUsersText").textContent = `🟡 로컬 모드: ${myNickname} (1명)`;
+        return;
+      }
+
+      realtimeRoom = supabaseClient.channel(`vox-room-${code}`, {
+        config: {
+          broadcast: { self: false },
+          presence: { key: myUserId }
+        }
+      });
+
+      realtimeRoom.on("presence", { event: "sync" }, () => {
+        const state = realtimeRoom.presenceState();
+        const peers = [];
+        Object.keys(state).forEach(uid => {
+          const entries = state[uid];
+          if (entries && entries.length > 0) {
+            peers.push(entries[entries.length - 1]);
+          }
+        });
+        onlinePeers = peers;
+        const names = peers.map(p => p.nickname).join(", ");
+        document.getElementById("onlineUsersText").textContent = `🟢 접속 ${peers.length}명 (${names})`;
+      });
+
+      realtimeRoom.on("broadcast", { event: "floor" }, ({ payload }) => {
+        if (payload.state === "speaking") {
+          remoteSpeaker = payload.nickname;
+          updateFloorUi();
+          clearTimeout(speakerTimeout);
+          speakerTimeout = setTimeout(() => {
+            remoteSpeaker = null;
+            updateFloorUi();
+          }, 32000);
+        } else {
+          remoteSpeaker = null;
+          clearTimeout(speakerTimeout);
+          updateFloorUi();
+        }
+      });
+
+      realtimeRoom.on("broadcast", { event: "voice" }, ({ payload }) => {
+        remoteSpeaker = null;
+        updateFloorUi();
+
+        const now = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+        const entry = {
+          id: payload.id || Date.now(),
+          sender: payload.nickname || "상대방",
+          time: now,
+          text: payload.text || "(실시간 음성 무전)",
+          audioDataUrl: payload.audioDataUrl || null,
+          sos: !!payload.sos
+        };
+        logs.unshift(entry);
+        renderLogs();
+
+        if (entry.sos) {
+          playSfx("alert");
+        } else {
+          playStartChirp();
+        }
+
+        if (entry.audioDataUrl) {
+          setTimeout(() => playRadioAudio(entry.audioDataUrl), 160);
+        } else {
+          setTimeout(playRogerBeep, 200);
+        }
+      });
+
+      realtimeRoom.on("broadcast", { event: "sfx" }, ({ payload }) => {
+        playSfx(payload.kind);
+      });
+
+      realtimeRoom.subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await realtimeRoom.track({
+            userId: myUserId,
+            nickname: myNickname,
+            gps: myGps,
+            onlineAt: Date.now()
+          });
+        }
+      });
+    }
+
+    function updateFloorUi() {
+      const status = document.getElementById("floorStatus");
+      const pttBtn = document.getElementById("mainPttBtn");
+      if (isTransmitting) {
+        status.classList.add("busy");
+        status.textContent = "🔴 내가 송신 중... (말씀하세요)";
+        pttBtn.classList.add("active");
+        pttBtn.classList.remove("locked");
+      } else if (remoteSpeaker) {
+        status.classList.add("busy");
+        status.textContent = `🟠 ${remoteSpeaker}님 송신 중... (수신 대기)`;
+        pttBtn.classList.remove("active");
+        pttBtn.classList.add("locked");
+      } else {
+        status.classList.remove("busy");
+        status.textContent = "🟢 수신 대기 중 (발언 가능)";
+        pttBtn.classList.remove("active", "locked");
+      }
+    }
+
+    // 5. Web Audio Engine
+    let audioCtx = null;
+    let bgmOsc = null;
+    let bgmGain = null;
+    let isBgmOn = false;
+
     function ensureAudioCtx() {
       if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -761,7 +983,7 @@
       }
     }
 
-    function playTone(freq, duration, type = "sine", vol = 0.18, delay = 0) {
+    function playTone(freq, duration, type = "sine", vol = 0.16, delay = 0) {
       ensureAudioCtx();
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
@@ -776,16 +998,15 @@
     }
 
     function playStartChirp() {
-      playTone(980, 0.07, "sine", 0.16, 0);
-      playTone(1320, 0.09, "sine", 0.16, 0.07);
+      playTone(980, 0.07, "sine", 0.15, 0);
+      playTone(1320, 0.09, "sine", 0.15, 0.07);
     }
 
     function playRogerBeep() {
-      playTone(1200, 0.08, "triangle", 0.15, 0);
-      playTone(880, 0.12, "triangle", 0.15, 0.08);
-      // White noise squelch tail
+      playTone(1200, 0.08, "triangle", 0.14, 0);
+      playTone(880, 0.12, "triangle", 0.14, 0.08);
       ensureAudioCtx();
-      const bufferSize = audioCtx.sampleRate * 0.12;
+      const bufferSize = audioCtx.sampleRate * 0.11;
       const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
       const data = buffer.getChannelData(0);
       for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
@@ -795,8 +1016,8 @@
       filter.type = "bandpass";
       filter.frequency.value = 1800;
       const gain = audioCtx.createGain();
-      gain.gain.setValueAtTime(0.08, audioCtx.currentTime + 0.16);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.28);
+      gain.gain.setValueAtTime(0.07, audioCtx.currentTime + 0.16);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.27);
       noise.connect(filter);
       filter.connect(gain);
       gain.connect(audioCtx.destination);
@@ -804,10 +1025,17 @@
     }
 
     function playSfx(kind) {
-      if (kind === "beep") { playTone(1050, 0.12); playTone(1050, 0.12, "sine", 0.18, 0.16); }
+      if (kind === "beep") { playTone(1050, 0.12); playTone(1050, 0.12, "sine", 0.16, 0.16); }
       if (kind === "roger") playRogerBeep();
       if (kind === "alert") { playTone(740, 0.18, "sawtooth", 0.14); playTone(560, 0.22, "sawtooth", 0.14, 0.2); }
-      if (kind === "ok") { playTone(660, 0.09); playTone(990, 0.15, "sine", 0.18, 0.1); }
+      if (kind === "ok") { playTone(660, 0.09); playTone(990, 0.15, "sine", 0.16, 0.1); }
+    }
+
+    function sendSfxBroadcast(kind) {
+      playSfx(kind);
+      if (realtimeRoom) {
+        realtimeRoom.send({ type: "broadcast", event: "sfx", payload: { kind } });
+      }
     }
 
     function toggleBgm() {
@@ -817,7 +1045,7 @@
         bgmOsc = audioCtx.createOscillator();
         bgmGain = audioCtx.createGain();
         bgmOsc.type = "triangle";
-        bgmOsc.frequency.value = 146.83; // D3 ambient hum
+        bgmOsc.frequency.value = 146.83;
         bgmGain.gain.value = 0.08;
         bgmOsc.connect(bgmGain);
         bgmGain.connect(audioCtx.destination);
@@ -827,7 +1055,7 @@
       } else {
         bgmOsc.stop();
         isBgmOn = false;
-        btn.textContent = "BGM 켜기";
+        btn.textContent = "주행 BGM 덕킹";
       }
     }
 
@@ -837,26 +1065,52 @@
       }
     }
 
-    // 5. Real Microphone PTT & STT Engine
+    // 6. PTT Recording & Real-Time Transmission
+    let isTransmitting = false;
+    let mediaRecorder = null;
+    let recordedMimeType = "";
+    let audioChunks = [];
+    let analyser = null;
+    let micStream = null;
+    let recognition = null;
+    let liveTranscript = "";
+    let maxDurationTimer = null;
+
+    function getSupportedMimeType() {
+      const candidates = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/mp4",
+        "audio/ogg;codecs=opus"
+      ];
+      for (const type of candidates) {
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported(type)) return type;
+      }
+      return "";
+    }
+
     async function startTransmit() {
-      if (isTransmitting) return;
+      if (isTransmitting || remoteSpeaker) return;
       isTransmitting = true;
       liveTranscript = "";
       audioChunks = [];
+      updateFloorUi();
 
       playStartChirp();
       duckBgm(true);
 
-      const mainBtn = document.getElementById("mainPttBtn");
-      const status = document.getElementById("floorStatus");
-      mainBtn.classList.add("active");
-      status.classList.add("busy");
-      status.textContent = "🔴 송신 중... (말씀하세요)";
-      document.querySelectorAll(".quick-ptt").forEach(b => {
-        if (activeChannel && b.dataset.chid === activeChannel.id) b.classList.add("transmitting");
-      });
+      if (realtimeRoom) {
+        realtimeRoom.send({
+          type: "broadcast",
+          event: "floor",
+          payload: { state: "speaking", userId: myUserId, nickname: myNickname }
+        });
+      }
 
-      // Speech-to-Text (Korean)
+      maxDurationTimer = setTimeout(() => {
+        if (isTransmitting) stopTransmit();
+      }, 30000);
+
       const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SpeechRec) {
         try {
@@ -872,7 +1126,6 @@
         } catch (err) {}
       }
 
-      // Real Microphone Recording
       try {
         if (!micStream) {
           micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -883,14 +1136,18 @@
         analyser.fftSize = 128;
         source.connect(analyser);
 
-        mediaRecorder = new MediaRecorder(micStream);
+        recordedMimeType = getSupportedMimeType();
+        const options = recordedMimeType
+          ? { mimeType: recordedMimeType, audioBitsPerSecond: 16000 }
+          : { audioBitsPerSecond: 16000 };
+
+        mediaRecorder = new MediaRecorder(micStream, options);
         mediaRecorder.ondataavailable = (e) => {
-          if (e.data.size > 0) audioChunks.push(e.data);
+          if (e.data && e.data.size > 0) audioChunks.push(e.data);
         };
-        mediaRecorder.onstop = finalizeTransmission;
-        mediaRecorder.start();
+        mediaRecorder.onstop = finalizeAndSendVoice;
+        mediaRecorder.start(200);
       } catch (err) {
-        // Fallback when mic permission is unavailable
         mediaRecorder = null;
       }
     }
@@ -898,16 +1155,19 @@
     function stopTransmit() {
       if (!isTransmitting) return;
       isTransmitting = false;
+      clearTimeout(maxDurationTimer);
+      updateFloorUi();
 
       playRogerBeep();
       duckBgm(false);
 
-      const mainBtn = document.getElementById("mainPttBtn");
-      const status = document.getElementById("floorStatus");
-      mainBtn.classList.remove("active");
-      status.classList.remove("busy");
-      status.textContent = "🟢 수신 대기 중 (발언 가능)";
-      document.querySelectorAll(".quick-ptt").forEach(b => b.classList.remove("transmitting"));
+      if (realtimeRoom) {
+        realtimeRoom.send({
+          type: "broadcast",
+          event: "floor",
+          payload: { state: "idle", userId: myUserId, nickname: myNickname }
+        });
+      }
 
       if (recognition) {
         try { recognition.stop(); } catch (e) {}
@@ -916,136 +1176,211 @@
       if (mediaRecorder && mediaRecorder.state !== "inactive") {
         mediaRecorder.stop();
       } else {
-        finalizeTransmission();
+        finalizeAndSendVoice();
       }
     }
 
-    function finalizeTransmission() {
-      let audioUrl = null;
+    function blobToDataUrl(blob) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    async function finalizeAndSendVoice() {
+      let audioDataUrl = null;
       if (audioChunks.length > 0) {
-        const blob = new Blob(audioChunks, { type: "audio/webm" });
-        audioUrl = URL.createObjectURL(blob);
+        const blob = new Blob(audioChunks, { type: recordedMimeType || "audio/webm" });
+        audioDataUrl = await blobToDataUrl(blob);
       }
 
       const now = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
-      const text = liveTranscript.trim() || "(음성 무전 송출 완료 — 다시듣기로 재생 가능)";
-      const entry = { id: Date.now(), sender: "나 (송신)", time: now, text, audioUrl, sos: false };
-      logs.unshift(entry);
-      document.getElementById("lastMissedText").textContent = `"${text}"`;
+      const text = liveTranscript.trim() || "(음성 무전 송출 완료)";
+      const msgId = Date.now();
+
+      logs.unshift({
+        id: msgId,
+        sender: `${myNickname} (나)`,
+        time: now,
+        text,
+        audioDataUrl,
+        sos: false
+      });
       renderLogs();
+
+      if (realtimeRoom) {
+        const safeAudio = audioDataUrl && audioDataUrl.length < 245000 ? audioDataUrl : null;
+        await realtimeRoom.send({
+          type: "broadcast",
+          event: "voice",
+          payload: {
+            id: msgId,
+            senderId: myUserId,
+            nickname: myNickname,
+            text: safeAudio ? text : text + " (용량 초과로 텍스트만 전송됨)",
+            audioDataUrl: safeAudio,
+            sos: false
+          }
+        });
+      }
     }
 
-    // Play audio with Walkie-Talkie Bandpass Filter (300Hz - 3000Hz)
-    function playRadioAudio(url) {
-      if (!url) {
+    function playRadioAudio(dataUrl) {
+      if (!dataUrl) {
         playRogerBeep();
         return;
       }
       ensureAudioCtx();
       duckBgm(true);
-      const audio = new Audio(url);
-      const src = audioCtx.createMediaElementSource(audio);
-      const filter = audioCtx.createBiquadFilter();
-      filter.type = "bandpass";
-      filter.frequency.value = 1450;
-      filter.Q.value = 1.1;
-      src.connect(filter);
-      filter.connect(audioCtx.destination);
+      const audio = new Audio(dataUrl);
+      const volSlider = document.getElementById("rxVolumeSlider");
+      audio.volume = volSlider ? Number(volSlider.value) / 100 : 1;
+
+      try {
+        const src = audioCtx.createMediaElementSource(audio);
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = "bandpass";
+        filter.frequency.value = 1450;
+        filter.Q.value = 1.0;
+        src.connect(filter);
+        filter.connect(audioCtx.destination);
+      } catch (e) {}
+
       audio.onended = () => {
         playRogerBeep();
         duckBgm(false);
       };
-      audio.play();
+      audio.play().catch(() => {
+        duckBgm(false);
+      });
     }
 
     function replayLast() {
-      const target = logs.find(l => l.audioUrl) || logs[0];
-      if (target && target.audioUrl) {
-        playRadioAudio(target.audioUrl);
+      const target = logs.find(l => l.audioDataUrl) || logs[0];
+      if (target && target.audioDataUrl) {
+        playRadioAudio(target.audioDataUrl);
       } else {
         playStartChirp();
-        setTimeout(playRogerBeep, 350);
+        setTimeout(playRogerBeep, 300);
       }
     }
 
-    function simulateIncoming() {
-      playStartChirp();
-      duckBgm(true);
-      const samples = [
-        "전방 500m 지점 공사 구간입니다. 서행하세요.",
-        "1층 메인 홀 테이블 세팅 완료되었습니다.",
-        "다들 현재 위치 공유 켜져 있는지 확인 부탁드립니다."
-      ];
-      const msg = samples[Math.floor(Math.random() * samples.length)];
-      const now = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
-      logs.unshift({ id: Date.now(), sender: "박지훈 (수신)", time: now, text: msg, audioUrl: null, sos: false });
-      document.getElementById("lastMissedText").textContent = `"${msg}"`;
-      renderLogs();
-      setTimeout(() => {
-        playRogerBeep();
-        duckBgm(false);
-      }, 650);
-    }
-
-    function triggerSos() {
+    async function triggerSos() {
       playSfx("alert");
       const now = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+      const gpsText = myGps ? ` (위도 ${myGps.lat.toFixed(4)}, 경도 ${myGps.lng.toFixed(4)})` : "";
+      const text = `🚨 긴급 SOS 호출! 즉시 응답 바랍니다.${gpsText}`;
+
       logs.unshift({
         id: Date.now(),
-        sender: "🚨 긴급 SOS 호출",
+        sender: `${myNickname} (SOS)`,
         time: now,
-        text: "긴급 상황 발생! 현재 GPS 좌표가 전 채널에 최우선 공유되었습니다.",
-        audioUrl: null,
+        text,
+        audioDataUrl: null,
         sos: true
       });
       renderLogs();
+
+      if (realtimeRoom) {
+        await realtimeRoom.send({
+          type: "broadcast",
+          event: "voice",
+          payload: {
+            id: Date.now(),
+            senderId: myUserId,
+            nickname: myNickname,
+            text,
+            audioDataUrl: null,
+            sos: true
+          }
+        });
+      }
     }
 
     function renderLogs() {
       const list = document.getElementById("logList");
       if (!list) return;
+      if (logs.length === 0) {
+        list.innerHTML = `<div style="text-align:center; color:var(--muted); font-size:0.8rem; padding:24px 0;">하단 버튼을 꾹 눌러 첫 무전을 송출하세요.</div>`;
+        return;
+      }
       list.innerHTML = "";
-      logs.forEach(item => {
+      logs.forEach((item, idx) => {
         const div = document.createElement("div");
         div.className = "log-item" + (item.sos ? " sos" : "");
         div.innerHTML = `
           <div class="log-top">
             <strong>${item.sender} · ${item.time}</strong>
-            <button class="play-chip" onclick="playRadioAudio(${item.audioUrl ? `'${item.audioUrl}'` : "null"})">▶ 무전재생</button>
+            <button class="play-chip" data-idx="${idx}">▶ 무전재생</button>
           </div>
           <div>${item.text}</div>
         `;
+        div.querySelector(".play-chip").onclick = () => playRadioAudio(item.audioDataUrl);
         list.appendChild(div);
       });
     }
 
-    // 6. Export CSV (Business Mode)
+    // 7. Real GPS Tracking
+    function startGpsTracking() {
+      if (!navigator.geolocation) return;
+      gpsWatchId = navigator.geolocation.watchPosition(
+        async (pos) => {
+          myGps = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          document.getElementById("gpsStatusText").textContent =
+            `📍 내 GPS 활성 (${myGps.lat.toFixed(3)}, ${myGps.lng.toFixed(3)})`;
+          if (realtimeRoom) {
+            await realtimeRoom.track({
+              userId: myUserId,
+              nickname: myNickname,
+              gps: myGps,
+              onlineAt: Date.now()
+            });
+          }
+        },
+        () => {
+          document.getElementById("gpsStatusText").textContent = "📍 GPS 권한 미허용 (레이더 기본 표시)";
+        },
+        { enableHighAccuracy: true, maximumAge: 5000 }
+      );
+    }
+
+    function calcDistanceMeters(g1, g2) {
+      if (!g1 || !g2) return null;
+      const R = 6371000;
+      const dLat = ((g2.lat - g1.lat) * Math.PI) / 180;
+      const dLng = ((g2.lng - g1.lng) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos((g1.lat * Math.PI) / 180) *
+          Math.cos((g2.lat * Math.PI) / 180) *
+          Math.sin(dLng / 2) ** 2;
+      return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+    }
+
+    // 8. Export CSV
     function exportLogsCsv() {
-      const rows = [["발신자", "시간", "자막내용"]];
+      const rows = [["발신자", "시간", "무전내용"]];
       logs.forEach(l => rows.push([l.sender, l.time, `"${l.text.replace(/"/g, '""')}"`]));
       const csvContent = "\uFEFF" + rows.map(e => e.join(",")).join("\n");
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = `VOX_ONE_무전기록_${new Date().toISOString().slice(0, 10)}.csv`;
+      link.download = `VOX_ONE_${activeChannel ? activeChannel.code : "LOG"}.csv`;
       link.click();
     }
 
-    // 7. Modals & Channel Creation
-    function openModal(id) { document.getElementById(id).classList.add("open"); }
+    // 9. Modals
+    function openModal(id) {
+      if (id === "serverModal") {
+        document.getElementById("sbUrlInput").value = sbUrl;
+        document.getElementById("sbKeyInput").value = sbKey;
+      }
+      document.getElementById(id).classList.add("open");
+    }
     function closeModal(id) { document.getElementById(id).classList.remove("open"); }
 
-    function createChannel() {
-      const name = document.getElementById("newChanName").value.trim() || "새 무전 채널";
-      const type = document.getElementById("newChanType").value;
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      channels.unshift({ id: "c" + Date.now(), name, type, members: 1, code, last: "방금 생성됨" });
-      document.getElementById("newChanName").value = "";
-      closeModal("createModal");
-      renderChannels();
-    }
-
-    // 8. Canvas Animations (Waveform + Driving GPS Radar)
+    // 10. Waveform & Radar Animation
     const waveCanvas = document.getElementById("waveCanvas");
     const wCtx = waveCanvas.getContext("2d");
     const radarCanvas = document.getElementById("radarCanvas");
@@ -1053,7 +1388,6 @@
     let radarAngle = 0;
 
     function animateCanvases() {
-      // Waveform
       wCtx.clearRect(0, 0, waveCanvas.width, waveCanvas.height);
       const bars = 36;
       const barW = waveCanvas.width / bars;
@@ -1065,15 +1399,16 @@
       for (let i = 0; i < bars; i++) {
         let amp = 4;
         if (isTransmitting) {
-          amp = freqData ? Math.max(6, (freqData[i] / 255) * 62) : (8 + Math.random() * 48);
+          amp = freqData ? Math.max(6, (freqData[i] / 255) * 56) : (8 + Math.random() * 44);
+        } else if (remoteSpeaker) {
+          amp = 8 + Math.abs(Math.sin(Date.now() * 0.01 + i)) * 32;
         }
-        wCtx.fillStyle = isTransmitting ? "#ef4444" : "#38bdf8";
+        wCtx.fillStyle = isTransmitting ? "#ef4444" : remoteSpeaker ? "#f59e0b" : "#38bdf8";
         const x = i * barW + 3;
         const y = (waveCanvas.height - amp) / 2;
         wCtx.fillRect(x, y, barW - 6, amp);
       }
 
-      // Driving Radar
       if (currentMode === "drive") {
         const w = radarCanvas.width;
         const h = radarCanvas.height;
@@ -1082,61 +1417,61 @@
         rCtx.clearRect(0, 0, w, h);
 
         rCtx.strokeStyle = "#1e293b";
-        [28, 56].forEach(r => {
+        [26, 54].forEach(r => {
           rCtx.beginPath();
           rCtx.arc(cx, cy, r, 0, Math.PI * 2);
           rCtx.stroke();
         });
 
-        // Sweep line
         radarAngle += 0.03;
         rCtx.strokeStyle = "rgba(16, 185, 129, 0.5)";
         rCtx.beginPath();
         rCtx.moveTo(cx, cy);
-        rCtx.lineTo(cx + Math.cos(radarAngle) * 62, cy + Math.sin(radarAngle) * 62);
+        rCtx.lineTo(cx + Math.cos(radarAngle) * 58, cy + Math.sin(radarAngle) * 58);
         rCtx.stroke();
 
-        // Center (Me)
         rCtx.fillStyle = "#38bdf8";
         rCtx.beginPath();
         rCtx.arc(cx, cy, 5, 0, Math.PI * 2);
         rCtx.fill();
 
-        // Group members
-        rCtx.fillStyle = "#10b981";
-        rCtx.beginPath();
-        rCtx.arc(cx - 24, cy - 18, 4, 0, Math.PI * 2);
-        rCtx.fill();
-        rCtx.fillStyle = "#94a3b8";
-        rCtx.font = "11px sans-serif";
-        rCtx.fillText("선두 김민수 (320m)", cx - 16, cy - 15);
+        const others = onlinePeers.filter(p => p.userId !== myUserId);
+        others.forEach((peer, i) => {
+          const angle = (i * 2.1) + 0.8;
+          const distM = calcDistanceMeters(myGps, peer.gps);
+          const radius = distM !== null ? Math.min(52, Math.max(18, distM / 20)) : 34;
+          const px = cx + Math.cos(angle) * radius;
+          const py = cy + Math.sin(angle) * radius;
+          const isFar = distM !== null && distM > 1000;
 
-        rCtx.fillStyle = "#f59e0b";
-        rCtx.beginPath();
-        rCtx.arc(cx + 38, cy + 28, 4, 0, Math.PI * 2);
-        rCtx.fill();
-        rCtx.fillText("이영희 (1.2km 이탈주의)", cx + 45, cy + 31);
+          rCtx.fillStyle = isFar ? "#f59e0b" : "#10b981";
+          rCtx.beginPath();
+          rCtx.arc(px, py, 4, 0, Math.PI * 2);
+          rCtx.fill();
+
+          rCtx.fillStyle = "#cbd5e1";
+          rCtx.font = "11px sans-serif";
+          const distLabel = distM !== null ? ` (${distM >= 1000 ? (distM/1000).toFixed(1)+"km" : distM+"m"})` : "";
+          rCtx.fillText(`${peer.nickname}${distLabel}`, px + 7, py + 4);
+        });
       }
 
       requestAnimationFrame(animateCanvases);
     }
 
-    // 9. Touch, Pointer & Keyboard PTT Bindings
-    function bindPttEvents(el, onDown, onUp) {
-      el.addEventListener("pointerdown", (e) => {
-        e.preventDefault();
-        el.setPointerCapture(e.pointerId);
-        onDown();
-      });
-      el.addEventListener("pointerup", (e) => {
-        e.preventDefault();
-        onUp();
-      });
-      el.addEventListener("pointercancel", onUp);
-      el.addEventListener("contextmenu", (e) => e.preventDefault());
-    }
-
-    bindPttEvents(document.getElementById("mainPttBtn"), startTransmit, stopTransmit);
+    // 11. Pointer & Keyboard PTT Controls
+    const mainPttBtn = document.getElementById("mainPttBtn");
+    mainPttBtn.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      mainPttBtn.setPointerCapture(e.pointerId);
+      startTransmit();
+    });
+    mainPttBtn.addEventListener("pointerup", (e) => {
+      e.preventDefault();
+      stopTransmit();
+    });
+    mainPttBtn.addEventListener("pointercancel", stopTransmit);
+    mainPttBtn.addEventListener("contextmenu", (e) => e.preventDefault());
 
     window.addEventListener("keydown", (e) => {
       if (e.code === "Space" && document.activeElement.tagName !== "INPUT" && activeChannel) {
@@ -1151,7 +1486,8 @@
       }
     });
 
-    // Init
+    // Boot
+    initSupabase();
     renderChannels();
     animateCanvases();
   </script>
