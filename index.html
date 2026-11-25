@@ -1,1 +1,1159 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="VOX-ONE" />
+  <title>VOX-ONE | 올인원 스마트 무전기</title>
+  <link id="pwa-manifest" rel="manifest" />
+  <style>
+    :root {
+      --bg: #0b1120;
+      --panel: #131c31;
+      --panel-light: #1e293b;
+      --border: #283548;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --green: #10b981;
+      --red: #ef4444;
+      --amber: #f59e0b;
+    }
 
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif;
+      background-color: #050811;
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      min-height: 100dvh;
+      overflow-x: hidden;
+    }
+
+    .app-shell {
+      width: 100%;
+      max-width: 480px;
+      min-height: 100dvh;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      position: relative;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      font-size: 1.05rem;
+      letter-spacing: 0.5px;
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    button {
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+      outline: none;
+      color: var(--text);
+      background: var(--panel-light);
+      border-radius: 10px;
+      transition: transform 0.1s, background 0.15s;
+    }
+
+    button:active {
+      transform: scale(0.97);
+    }
+
+    .icon-btn {
+      padding: 7px 11px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border: 1px solid var(--border);
+    }
+
+    /* Views */
+    .view {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      padding: 16px;
+      gap: 14px;
+    }
+
+    .view.active {
+      display: flex;
+    }
+
+    /* Home View */
+    .section-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .channel-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .channel-info {
+      flex: 1;
+      cursor: pointer;
+    }
+
+    .channel-title {
+      font-weight: 700;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .badge {
+      font-size: 0.68rem;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-weight: 700;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+    }
+
+    .badge.drive { background: rgba(16, 185, 129, 0.15); color: var(--green); }
+    .badge.work { background: rgba(245, 158, 11, 0.15); color: var(--amber); }
+
+    .channel-meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .quick-ptt {
+      background: linear-gradient(145deg, #1e293b, #0f172a);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 0.82rem;
+      user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: manipulation;
+    }
+
+    .quick-ptt.transmitting {
+      background: var(--red);
+      border-color: var(--red);
+      color: #fff;
+      box-shadow: 0 0 16px rgba(239, 68, 68, 0.5);
+    }
+
+    .missed-bar {
+      margin-top: auto;
+      background: var(--panel-light);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 0.85rem;
+    }
+
+    /* Room View */
+    .mode-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      background: var(--panel);
+      padding: 4px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .mode-tab {
+      padding: 8px 4px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      background: transparent;
+      color: var(--muted);
+      border-radius: 9px;
+    }
+
+    .mode-tab.active {
+      background: var(--panel-light);
+      color: var(--text);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    }
+
+    .canvas-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    canvas {
+      width: 100%;
+      height: 76px;
+      background: #080d1a;
+      border-radius: 10px;
+      display: block;
+    }
+
+    .mode-panel {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .mode-panel.active {
+      display: flex;
+    }
+
+    /* Soundboard */
+    .sfx-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+
+    .sfx-btn {
+      padding: 8px 4px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border: 1px solid var(--border);
+    }
+
+    /* Radar / Driving */
+    #radarCanvas {
+      height: 150px;
+    }
+
+    .drive-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+      background: #0b1120;
+      padding: 8px 12px;
+      border-radius: 10px;
+    }
+
+    /* Business Mixer */
+    .mixer-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 0.82rem;
+    }
+
+    .mixer-row input[type="range"] {
+      flex: 1;
+      accent-color: var(--amber);
+    }
+
+    /* Logs */
+    .log-list {
+      flex: 1;
+      min-height: 140px;
+      max-height: 230px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-right: 4px;
+    }
+
+    .log-item {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .log-item.sos {
+      border-color: var(--red);
+      background: rgba(239, 68, 68, 0.12);
+    }
+
+    .log-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .play-chip {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-weight: 700;
+    }
+
+    /* PTT Deck */
+    .ptt-deck {
+      margin-top: auto;
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      padding: 14px 16px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .floor-status {
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: #0b1120;
+      border: 1px solid var(--border);
+      color: var(--green);
+    }
+
+    .floor-status.busy {
+      color: var(--red);
+      border-color: var(--red);
+    }
+
+    .ptt-row {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .side-action {
+      width: 74px;
+      height: 64px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      border: 1px solid var(--border);
+    }
+
+    .side-action.sos-btn {
+      border-color: rgba(239, 68, 68, 0.5);
+      color: #fca5a5;
+    }
+
+    .ptt-main {
+      flex: 1;
+      height: 86px;
+      border-radius: 22px;
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      border: 2px solid var(--accent);
+      box-shadow: 0 6px 20px rgba(56, 189, 248, 0.2);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      font-size: 1.05rem;
+      font-weight: 800;
+      user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: manipulation;
+    }
+
+    .ptt-main.driving-size {
+      height: 128px;
+      font-size: 1.25rem;
+      border-width: 3px;
+    }
+
+    .ptt-main.active {
+      background: linear-gradient(180deg, #ef4444 0%, #b91c1c 100%);
+      border-color: #fecaca;
+      box-shadow: 0 0 28px rgba(239, 68, 68, 0.65);
+      transform: scale(0.98);
+    }
+
+    .ptt-sub {
+      font-size: 0.74rem;
+      font-weight: 500;
+      color: var(--muted);
+    }
+
+    .ptt-main.active .ptt-sub {
+      color: #fee2e2;
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.72);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 50;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 400px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .modal h3 {
+      font-size: 1.05rem;
+    }
+
+    .modal input, .modal select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0b1120;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #082f49;
+      font-weight: 800;
+      padding: 9px 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header>
+      <div class="brand" id="headerTitle">
+        <span class="status-dot"></span>
+        <span>VOX-ONE</span>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="backHomeBtn" style="display:none;" onclick="goHome()">← 홈</button>
+        <button class="icon-btn" onclick="simulateIncoming()">📥 수신테스트</button>
+        <button class="icon-btn" onclick="openModal('guideModal')">💡 설치법</button>
+      </div>
+    </header>
+
+    <!-- HOME VIEW -->
+    <main id="homeView" class="view active">
+      <div class="section-label">
+        <span>즐겨찾기 채널 (원터치 퀵 무전)</span>
+        <button class="icon-btn" onclick="openModal('createModal')">+ 채널 생성</button>
+      </div>
+
+      <div id="channelList" style="display:flex; flex-direction:column; gap:10px;"></div>
+
+      <div class="missed-bar">
+        <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+          <strong style="color:var(--accent);">놓친 무전:</strong>
+          <span id="lastMissedText">"3분 뒤 휴게소 진입합니다."</span>
+        </div>
+        <button class="play-chip" onclick="replayLast()">▶ 재생</button>
+      </div>
+    </main>
+
+    <!-- ROOM VIEW -->
+    <section id="roomView" class="view">
+      <div class="mode-tabs">
+        <button class="mode-tab active" data-mode="social" onclick="switchMode('social')">💬 일상 모드</button>
+        <button class="mode-tab" data-mode="drive" onclick="switchMode('drive')">🚗 주행 모드</button>
+        <button class="mode-tab" data-mode="work" onclick="switchMode('work')">🏢 업무 모드</button>
+      </div>
+
+      <div class="canvas-box">
+        <canvas id="waveCanvas" width="420" height="76"></canvas>
+
+        <!-- Social Mode Sub-panel -->
+        <div id="panel-social" class="mode-panel active">
+          <div class="section-label"><span>무전 효과음 패드 (송출)</span></div>
+          <div class="sfx-grid">
+            <button class="sfx-btn" onclick="playSfx('beep')">📡 호출음</button>
+            <button class="sfx-btn" onclick="playSfx('roger')">📻 로저톤</button>
+            <button class="sfx-btn" onclick="playSfx('alert')">⚠️ 주의알림</button>
+            <button class="sfx-btn" onclick="playSfx('ok')">✅ 수신완료</button>
+          </div>
+        </div>
+
+        <!-- Driving Mode Sub-panel -->
+        <div id="panel-drive" class="mode-panel">
+          <canvas id="radarCanvas" width="420" height="150"></canvas>
+          <div class="drive-controls">
+            <span>🎵 주행 BGM 오디오 덕킹</span>
+            <button class="icon-btn" id="bgmBtn" onclick="toggleBgm()">BGM 켜기</button>
+          </div>
+        </div>
+
+        <!-- Business Mode Sub-panel -->
+        <div id="panel-work" class="mode-panel">
+          <div class="section-label">
+            <span>다중 채널 동시 청취 믹서</span>
+            <button class="play-chip" onclick="exportLogsCsv()">CSV 내보내기</button>
+          </div>
+          <div class="mixer-row">
+            <span>CH.1 전체공지</span>
+            <input type="range" min="0" max="100" value="100" />
+          </div>
+          <div class="mixer-row">
+            <span>CH.2 현장팀</span>
+            <input type="range" min="0" max="100" value="75" />
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">
+        <span>실시간 무전 로그 & 자막 (STT)</span>
+        <span id="roomCodeBadge" style="color:var(--accent);">CODE: 482910</span>
+      </div>
+      <div id="logList" class="log-list"></div>
+    </section>
+
+    <!-- PTT DECK -->
+    <div id="pttDeck" class="ptt-deck" style="display:none;">
+      <div id="floorStatus" class="floor-status">🟢 수신 대기 중 (발언 가능)</div>
+      <div class="ptt-row">
+        <button class="side-action" onclick="replayLast()">
+          <span>↺</span>
+          <span>다시듣기</span>
+        </button>
+
+        <button id="mainPttBtn" class="ptt-main">
+          <span>🎙️ 꾹 눌러서 말하기</span>
+          <span class="ptt-sub">또는 스페이스바 길게 누르기</span>
+        </button>
+
+        <button class="side-action sos-btn" onclick="triggerSos()">
+          <span>🚨</span>
+          <span>긴급SOS</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Channel Modal -->
+  <div id="createModal" class="modal-backdrop">
+    <div class="modal">
+      <h3>새 무전 채널 만들기</h3>
+      <input id="newChanName" type="text" placeholder="채널 이름 (예: 주말 라이딩 A조)" />
+      <select id="newChanType">
+        <option value="social">일상 · 소셜 채널</option>
+        <option value="drive">주행 · 아웃도어 채널</option>
+        <option value="work">현장 · 비즈니스 채널</option>
+      </select>
+      <div class="modal-actions">
+        <button class="icon-btn" onclick="closeModal('createModal')">취소</button>
+        <button class="btn-primary" onclick="createChannel()">생성하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Guide Modal -->
+  <div id="guideModal" class="modal-backdrop">
+    <div class="modal">
+      <h3>📱 스마트폰 앱 설치 & 마이크 안내</h3>
+      <p style="font-size:0.84rem; color:var(--muted); line-height:1.5;">
+        1. GitHub Pages(<code>https://</code>) 주소로 접속해야 브라우저가 마이크 권한을 허용합니다.<br/>
+        2. <strong>안드로이드(Chrome):</strong> 우측 상단 <code>⋮</code> → <strong>홈 화면에 추가</strong><br/>
+        3. <strong>아이폰(Safari):</strong> 하단 공유(<code>□↑</code>) → <strong>홈 화면에 추가</strong><br/>
+        4. 마이크가 없는 PC 환경에서도 자동 가상 무전 녹음이 작동합니다.
+      </p>
+      <div class="modal-actions">
+        <button class="btn-primary" onclick="closeModal('guideModal')">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 1. Dynamic PWA Manifest Injection (Single-file GitHub deployment ready)
+    (function setupPwaManifest() {
+      const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0f172a"/><circle cx="256" cy="256" r="150" fill="none" stroke="#38bdf8" stroke-width="28"/><circle cx="256" cy="256" r="64" fill="#ef4444"/></svg>`;
+      const iconUrl = "data:image/svg+xml;base64," + btoa(svgIcon);
+      const manifest = {
+        name: "VOX-ONE 스마트 무전기",
+        short_name: "VOX-ONE",
+        start_url: "./",
+        display: "standalone",
+        background_color: "#0b1120",
+        theme_color: "#0f172a",
+        icons: [{ src: iconUrl, sizes: "512x512", type: "image/svg+xml" }]
+      };
+      const blob = new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" });
+      document.getElementById("pwa-manifest").setAttribute("href", URL.createObjectURL(blob));
+    })();
+
+    // 2. App State
+    const channels = [
+      { id: "c1", name: "주말 투어링 A조", type: "drive", members: 12, code: "482910", last: "방금 전 · 김민수" },
+      { id: "c2", name: "1층 홀/주방 스태프", type: "work", members: 8, code: "910342", last: "2분 전 · 매니저" },
+      { id: "c3", name: "우리 가족 무전기", type: "social", members: 4, code: "112094", last: "14분 전 · 엄마" }
+    ];
+
+    let activeChannel = null;
+    let currentMode = "social";
+    let isTransmitting = false;
+    let audioCtx = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let analyser = null;
+    let micStream = null;
+    let recognition = null;
+    let liveTranscript = "";
+    let bgmOsc = null;
+    let bgmGain = null;
+    let isBgmOn = false;
+
+    const logs = [
+      { id: 1, sender: "김민수", time: "오전 03:54", text: "3분 뒤 여주휴게소 진입합니다. 우측 차선으로 붙으세요.", audioUrl: null, sos: false },
+      { id: 2, sender: "이영희", time: "오전 03:56", text: "카피했습니다. 후미 차량 2대 정상 주행 중입니다.", audioUrl: null, sos: false }
+    ];
+
+    // 3. Render Home Channels
+    function renderChannels() {
+      const list = document.getElementById("channelList");
+      list.innerHTML = "";
+      channels.forEach(ch => {
+        const badgeLabel = ch.type === "drive" ? "주행" : ch.type === "work" ? "업무" : "일상";
+        const card = document.createElement("div");
+        card.className = "channel-card";
+        card.innerHTML = `
+          <div class="channel-info" onclick="enterRoom('${ch.id}')">
+            <div class="channel-title">
+              <span>${ch.name}</span>
+              <span class="badge ${ch.type}">${badgeLabel}</span>
+            </div>
+            <div class="channel-meta">참여 ${ch.members}명 · ${ch.last}</div>
+          </div>
+          <button class="quick-ptt" data-chid="${ch.id}">🎙️ 즉시무전</button>
+        `;
+        const qBtn = card.querySelector(".quick-ptt");
+        bindPttEvents(qBtn, () => {
+          activeChannel = ch;
+          startTransmit();
+        }, () => {
+          stopTransmit();
+        });
+        list.appendChild(card);
+      });
+    }
+
+    function enterRoom(id) {
+      activeChannel = channels.find(c => c.id === id);
+      if (!activeChannel) return;
+      document.getElementById("homeView").classList.remove("active");
+      document.getElementById("roomView").classList.add("active");
+      document.getElementById("pttDeck").style.display = "flex";
+      document.getElementById("backHomeBtn").style.display = "inline-block";
+      document.getElementById("headerTitle").innerHTML = `<span class="status-dot"></span><span>${activeChannel.name}</span>`;
+      document.getElementById("roomCodeBadge").textContent = `CODE: ${activeChannel.code}`;
+      switchMode(activeChannel.type);
+      renderLogs();
+    }
+
+    function goHome() {
+      activeChannel = null;
+      document.getElementById("roomView").classList.remove("active");
+      document.getElementById("homeView").classList.add("active");
+      document.getElementById("pttDeck").style.display = "none";
+      document.getElementById("backHomeBtn").style.display = "none";
+      document.getElementById("headerTitle").innerHTML = `<span class="status-dot"></span><span>VOX-ONE</span>`;
+    }
+
+    function switchMode(mode) {
+      currentMode = mode;
+      document.querySelectorAll(".mode-tab").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.mode === mode);
+      });
+      document.querySelectorAll(".mode-panel").forEach(p => p.classList.remove("active"));
+      document.getElementById(`panel-${mode}`).classList.add("active");
+
+      const pttBtn = document.getElementById("mainPttBtn");
+      pttBtn.classList.toggle("driving-size", mode === "drive");
+    }
+
+    // 4. Web Audio Synthesizer (Start Chirp, Roger Beep, Radio Bandpass Filter, BGM Ducking)
+    function ensureAudioCtx() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+    }
+
+    function playTone(freq, duration, type = "sine", vol = 0.18, delay = 0) {
+      ensureAudioCtx();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime + delay);
+      gain.gain.setValueAtTime(vol, audioCtx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + delay + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(audioCtx.currentTime + delay);
+      osc.stop(audioCtx.currentTime + delay + duration);
+    }
+
+    function playStartChirp() {
+      playTone(980, 0.07, "sine", 0.16, 0);
+      playTone(1320, 0.09, "sine", 0.16, 0.07);
+    }
+
+    function playRogerBeep() {
+      playTone(1200, 0.08, "triangle", 0.15, 0);
+      playTone(880, 0.12, "triangle", 0.15, 0.08);
+      // White noise squelch tail
+      ensureAudioCtx();
+      const bufferSize = audioCtx.sampleRate * 0.12;
+      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+      const noise = audioCtx.createBufferSource();
+      noise.buffer = buffer;
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.value = 1800;
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(0.08, audioCtx.currentTime + 0.16);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.28);
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(audioCtx.destination);
+      noise.start(audioCtx.currentTime + 0.16);
+    }
+
+    function playSfx(kind) {
+      if (kind === "beep") { playTone(1050, 0.12); playTone(1050, 0.12, "sine", 0.18, 0.16); }
+      if (kind === "roger") playRogerBeep();
+      if (kind === "alert") { playTone(740, 0.18, "sawtooth", 0.14); playTone(560, 0.22, "sawtooth", 0.14, 0.2); }
+      if (kind === "ok") { playTone(660, 0.09); playTone(990, 0.15, "sine", 0.18, 0.1); }
+    }
+
+    function toggleBgm() {
+      ensureAudioCtx();
+      const btn = document.getElementById("bgmBtn");
+      if (!isBgmOn) {
+        bgmOsc = audioCtx.createOscillator();
+        bgmGain = audioCtx.createGain();
+        bgmOsc.type = "triangle";
+        bgmOsc.frequency.value = 146.83; // D3 ambient hum
+        bgmGain.gain.value = 0.08;
+        bgmOsc.connect(bgmGain);
+        bgmGain.connect(audioCtx.destination);
+        bgmOsc.start();
+        isBgmOn = true;
+        btn.textContent = "BGM 끄기 (재생중)";
+      } else {
+        bgmOsc.stop();
+        isBgmOn = false;
+        btn.textContent = "BGM 켜기";
+      }
+    }
+
+    function duckBgm(duck) {
+      if (isBgmOn && bgmGain && audioCtx) {
+        bgmGain.gain.setTargetAtTime(duck ? 0.012 : 0.08, audioCtx.currentTime, 0.08);
+      }
+    }
+
+    // 5. Real Microphone PTT & STT Engine
+    async function startTransmit() {
+      if (isTransmitting) return;
+      isTransmitting = true;
+      liveTranscript = "";
+      audioChunks = [];
+
+      playStartChirp();
+      duckBgm(true);
+
+      const mainBtn = document.getElementById("mainPttBtn");
+      const status = document.getElementById("floorStatus");
+      mainBtn.classList.add("active");
+      status.classList.add("busy");
+      status.textContent = "🔴 송신 중... (말씀하세요)";
+      document.querySelectorAll(".quick-ptt").forEach(b => {
+        if (activeChannel && b.dataset.chid === activeChannel.id) b.classList.add("transmitting");
+      });
+
+      // Speech-to-Text (Korean)
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRec) {
+        try {
+          recognition = new SpeechRec();
+          recognition.lang = "ko-KR";
+          recognition.interimResults = true;
+          recognition.onresult = (e) => {
+            let text = "";
+            for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
+            liveTranscript = text;
+          };
+          recognition.start();
+        } catch (err) {}
+      }
+
+      // Real Microphone Recording
+      try {
+        if (!micStream) {
+          micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
+        ensureAudioCtx();
+        const source = audioCtx.createMediaStreamSource(micStream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 128;
+        source.connect(analyser);
+
+        mediaRecorder = new MediaRecorder(micStream);
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) audioChunks.push(e.data);
+        };
+        mediaRecorder.onstop = finalizeTransmission;
+        mediaRecorder.start();
+      } catch (err) {
+        // Fallback when mic permission is unavailable
+        mediaRecorder = null;
+      }
+    }
+
+    function stopTransmit() {
+      if (!isTransmitting) return;
+      isTransmitting = false;
+
+      playRogerBeep();
+      duckBgm(false);
+
+      const mainBtn = document.getElementById("mainPttBtn");
+      const status = document.getElementById("floorStatus");
+      mainBtn.classList.remove("active");
+      status.classList.remove("busy");
+      status.textContent = "🟢 수신 대기 중 (발언 가능)";
+      document.querySelectorAll(".quick-ptt").forEach(b => b.classList.remove("transmitting"));
+
+      if (recognition) {
+        try { recognition.stop(); } catch (e) {}
+      }
+
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+      } else {
+        finalizeTransmission();
+      }
+    }
+
+    function finalizeTransmission() {
+      let audioUrl = null;
+      if (audioChunks.length > 0) {
+        const blob = new Blob(audioChunks, { type: "audio/webm" });
+        audioUrl = URL.createObjectURL(blob);
+      }
+
+      const now = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+      const text = liveTranscript.trim() || "(음성 무전 송출 완료 — 다시듣기로 재생 가능)";
+      const entry = { id: Date.now(), sender: "나 (송신)", time: now, text, audioUrl, sos: false };
+      logs.unshift(entry);
+      document.getElementById("lastMissedText").textContent = `"${text}"`;
+      renderLogs();
+    }
+
+    // Play audio with Walkie-Talkie Bandpass Filter (300Hz - 3000Hz)
+    function playRadioAudio(url) {
+      if (!url) {
+        playRogerBeep();
+        return;
+      }
+      ensureAudioCtx();
+      duckBgm(true);
+      const audio = new Audio(url);
+      const src = audioCtx.createMediaElementSource(audio);
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.value = 1450;
+      filter.Q.value = 1.1;
+      src.connect(filter);
+      filter.connect(audioCtx.destination);
+      audio.onended = () => {
+        playRogerBeep();
+        duckBgm(false);
+      };
+      audio.play();
+    }
+
+    function replayLast() {
+      const target = logs.find(l => l.audioUrl) || logs[0];
+      if (target && target.audioUrl) {
+        playRadioAudio(target.audioUrl);
+      } else {
+        playStartChirp();
+        setTimeout(playRogerBeep, 350);
+      }
+    }
+
+    function simulateIncoming() {
+      playStartChirp();
+      duckBgm(true);
+      const samples = [
+        "전방 500m 지점 공사 구간입니다. 서행하세요.",
+        "1층 메인 홀 테이블 세팅 완료되었습니다.",
+        "다들 현재 위치 공유 켜져 있는지 확인 부탁드립니다."
+      ];
+      const msg = samples[Math.floor(Math.random() * samples.length)];
+      const now = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+      logs.unshift({ id: Date.now(), sender: "박지훈 (수신)", time: now, text: msg, audioUrl: null, sos: false });
+      document.getElementById("lastMissedText").textContent = `"${msg}"`;
+      renderLogs();
+      setTimeout(() => {
+        playRogerBeep();
+        duckBgm(false);
+      }, 650);
+    }
+
+    function triggerSos() {
+      playSfx("alert");
+      const now = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+      logs.unshift({
+        id: Date.now(),
+        sender: "🚨 긴급 SOS 호출",
+        time: now,
+        text: "긴급 상황 발생! 현재 GPS 좌표가 전 채널에 최우선 공유되었습니다.",
+        audioUrl: null,
+        sos: true
+      });
+      renderLogs();
+    }
+
+    function renderLogs() {
+      const list = document.getElementById("logList");
+      if (!list) return;
+      list.innerHTML = "";
+      logs.forEach(item => {
+        const div = document.createElement("div");
+        div.className = "log-item" + (item.sos ? " sos" : "");
+        div.innerHTML = `
+          <div class="log-top">
+            <strong>${item.sender} · ${item.time}</strong>
+            <button class="play-chip" onclick="playRadioAudio(${item.audioUrl ? `'${item.audioUrl}'` : "null"})">▶ 무전재생</button>
+          </div>
+          <div>${item.text}</div>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    // 6. Export CSV (Business Mode)
+    function exportLogsCsv() {
+      const rows = [["발신자", "시간", "자막내용"]];
+      logs.forEach(l => rows.push([l.sender, l.time, `"${l.text.replace(/"/g, '""')}"`]));
+      const csvContent = "\uFEFF" + rows.map(e => e.join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `VOX_ONE_무전기록_${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+    }
+
+    // 7. Modals & Channel Creation
+    function openModal(id) { document.getElementById(id).classList.add("open"); }
+    function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+
+    function createChannel() {
+      const name = document.getElementById("newChanName").value.trim() || "새 무전 채널";
+      const type = document.getElementById("newChanType").value;
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      channels.unshift({ id: "c" + Date.now(), name, type, members: 1, code, last: "방금 생성됨" });
+      document.getElementById("newChanName").value = "";
+      closeModal("createModal");
+      renderChannels();
+    }
+
+    // 8. Canvas Animations (Waveform + Driving GPS Radar)
+    const waveCanvas = document.getElementById("waveCanvas");
+    const wCtx = waveCanvas.getContext("2d");
+    const radarCanvas = document.getElementById("radarCanvas");
+    const rCtx = radarCanvas.getContext("2d");
+    let radarAngle = 0;
+
+    function animateCanvases() {
+      // Waveform
+      wCtx.clearRect(0, 0, waveCanvas.width, waveCanvas.height);
+      const bars = 36;
+      const barW = waveCanvas.width / bars;
+      let freqData = null;
+      if (isTransmitting && analyser) {
+        freqData = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(freqData);
+      }
+      for (let i = 0; i < bars; i++) {
+        let amp = 4;
+        if (isTransmitting) {
+          amp = freqData ? Math.max(6, (freqData[i] / 255) * 62) : (8 + Math.random() * 48);
+        }
+        wCtx.fillStyle = isTransmitting ? "#ef4444" : "#38bdf8";
+        const x = i * barW + 3;
+        const y = (waveCanvas.height - amp) / 2;
+        wCtx.fillRect(x, y, barW - 6, amp);
+      }
+
+      // Driving Radar
+      if (currentMode === "drive") {
+        const w = radarCanvas.width;
+        const h = radarCanvas.height;
+        const cx = w / 2;
+        const cy = h / 2;
+        rCtx.clearRect(0, 0, w, h);
+
+        rCtx.strokeStyle = "#1e293b";
+        [28, 56].forEach(r => {
+          rCtx.beginPath();
+          rCtx.arc(cx, cy, r, 0, Math.PI * 2);
+          rCtx.stroke();
+        });
+
+        // Sweep line
+        radarAngle += 0.03;
+        rCtx.strokeStyle = "rgba(16, 185, 129, 0.5)";
+        rCtx.beginPath();
+        rCtx.moveTo(cx, cy);
+        rCtx.lineTo(cx + Math.cos(radarAngle) * 62, cy + Math.sin(radarAngle) * 62);
+        rCtx.stroke();
+
+        // Center (Me)
+        rCtx.fillStyle = "#38bdf8";
+        rCtx.beginPath();
+        rCtx.arc(cx, cy, 5, 0, Math.PI * 2);
+        rCtx.fill();
+
+        // Group members
+        rCtx.fillStyle = "#10b981";
+        rCtx.beginPath();
+        rCtx.arc(cx - 24, cy - 18, 4, 0, Math.PI * 2);
+        rCtx.fill();
+        rCtx.fillStyle = "#94a3b8";
+        rCtx.font = "11px sans-serif";
+        rCtx.fillText("선두 김민수 (320m)", cx - 16, cy - 15);
+
+        rCtx.fillStyle = "#f59e0b";
+        rCtx.beginPath();
+        rCtx.arc(cx + 38, cy + 28, 4, 0, Math.PI * 2);
+        rCtx.fill();
+        rCtx.fillText("이영희 (1.2km 이탈주의)", cx + 45, cy + 31);
+      }
+
+      requestAnimationFrame(animateCanvases);
+    }
+
+    // 9. Touch, Pointer & Keyboard PTT Bindings
+    function bindPttEvents(el, onDown, onUp) {
+      el.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        el.setPointerCapture(e.pointerId);
+        onDown();
+      });
+      el.addEventListener("pointerup", (e) => {
+        e.preventDefault();
+        onUp();
+      });
+      el.addEventListener("pointercancel", onUp);
+      el.addEventListener("contextmenu", (e) => e.preventDefault());
+    }
+
+    bindPttEvents(document.getElementById("mainPttBtn"), startTransmit, stopTransmit);
+
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space" && document.activeElement.tagName !== "INPUT" && activeChannel) {
+        e.preventDefault();
+        startTransmit();
+      }
+    });
+    window.addEventListener("keyup", (e) => {
+      if (e.code === "Space" && isTransmitting) {
+        e.preventDefault();
+        stopTransmit();
+      }
+    });
+
+    // Init
+    renderChannels();
+    animateCanvases();
+  </script>
+</body>
+</html>
